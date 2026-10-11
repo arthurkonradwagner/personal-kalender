@@ -1,9 +1,9 @@
 /* Service Worker: App läuft auch offline. Bei Änderungen VERSION erhöhen. */
-const VERSION = 'pk-v6';
+const VERSION = 'pk-v7';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/firebase-config.js', 'js/util.js', 'js/store.js', 'js/recurrence.js', 'js/holidays.js', 'js/ics.js',
-  'js/views.js', 'js/todos.js', 'js/dialogs.js', 'js/sync.js', 'js/app.js',
+  'js/views.js', 'js/ai.js', 'js/todos.js', 'js/dialogs.js', 'js/sync.js', 'js/app.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 

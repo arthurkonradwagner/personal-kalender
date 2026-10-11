@@ -558,3 +558,10 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
   .topbar, .sidebar, .todo-panel, .bottom-nav { display: none !important; }
   body { overflow: visible; }
 }
+
+/* KI-Eingabe */
+.ai-key { display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end; }
+.ai-key input { flex: 1; min-width: 0; max-width: 260px; }
+.ai-msg { display: block; min-height: 1.2em; color: var(--text-2, inherit); margin: -4px 0 8px; }
+.todo-hint.ai-busy { animation: aiPulse 1s ease-in-out infinite alternate; }
+@keyframes aiPulse { from { opacity: .45; } to { opacity: 1; } }

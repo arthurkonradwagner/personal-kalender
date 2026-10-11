@@ -11,6 +11,7 @@ Doppelklick auf **index.html** öffnet den Kalender im Browser (Chrome, Edge ode
 - **Feiertage:** gesetzliche Feiertage in Deutschland, je nach Bundesland (Einstellungen)
 - **Erinnerungen:** Hinweis mit Ton, solange der Kalender im Browser offen ist
 - **Aufgaben rechts:** Tabs Heute, Geplant, Alle, Erledigt, eigene Listen mit Farben, Priorität, Unteraufgaben, Notizen. Schnelleingabe versteht z. B. `Zahnarzt anrufen morgen 14:00 !1 #Privat`
+- **KI-Eingabe:** Mit einem eigenen Claude- oder Gemini-Schlüssel (⚙ Einstellungen → „KI für Aufgaben“) kannst du ganz frei eintippen, z. B. „Freitag nach der Arbeit Geschenk für Mama kaufen und Dienstag 14 Uhr Zahnarzt“. Die KI legt daraus Aufgaben und Termine am richtigen Tag an. Ohne Schlüssel oder ohne Internet greift die normale Erkennung.
 - **Tagesfortschritt:** der Ring oben rechts zeigt, wie viel Prozent von heute erledigt sind (Aufgaben von heute und vergangene Termine von heute)
 - **Suche, Hell/Dunkel, Rückgängig (Strg+Z)** und Tastenkürzel (Taste **?**)
 - **Import/Export:** .ics-Dateien aus Google oder Proton importieren, alles als .ics exportieren, Sicherung als .json

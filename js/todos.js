@@ -291,12 +291,34 @@ const Todos = (() => {
   function bind() {
     U.$$('#todoTabs button').forEach((b) => b.addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', b.dataset.filter); }));
     const form = U.$('#todoAddForm'), input = U.$('#todoAddInput');
-    form.addEventListener('submit', (e) => {
+    let busy = false;
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const txt = input.value.trim();
-      if (!txt) return;
-      const p = parseQuick(txt);
+      if (!txt || busy) return;
       const S = Store.state;
+      if (AI.enabled() && navigator.onLine) {
+        busy = true;
+        const hint = U.$('#todoHint');
+        hint.textContent = '✨ KI liest deine Eingabe …'; hint.classList.add('live', 'ai-busy');
+        input.readOnly = true;
+        try {
+          const items = await AI.ask(txt);
+          const made = AI.apply(items, S.settings.todoListFilter || S.todoLists[0]?.id);
+          if (made.length) {
+            input.value = '';
+            updateHint('');
+            App.toast('✨ ' + AI.summary(made), { undo: true });
+            return;
+          }
+        } catch (err) {
+          console.error(err);
+          App.toast((err.userMsg || 'KI gerade nicht erreichbar.') + ' Normal eingetragen.', { type: 'error' });
+        } finally {
+          busy = false; input.readOnly = false; hint.classList.remove('ai-busy');
+        }
+      }
+      const p = parseQuick(txt);
       if (!p.due && S.settings.todoFilter === 'today') p.due = todayKey();
       if (!p.due && S.settings.todoFilter === 'upcoming') p.due = U.dateKey(U.addDays(new Date(), 1));
       Store.addTodo({ title: p.title || txt, due: p.due, time: p.time, priority: p.priority, listId: p.listId || S.settings.todoListFilter || S.todoLists[0]?.id });
@@ -305,7 +327,8 @@ const Todos = (() => {
     });
     const updateHint = (v) => {
       const hint = U.$('#todoHint');
-      if (!v.trim()) { hint.textContent = 'Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“'; hint.classList.remove('live'); return; }
+      if (!v.trim()) { hint.textContent = AI.enabled() ? '✨ KI an: schreib einfach, was zu tun ist und wann' : 'Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“'; hint.classList.remove('live'); return; }
+      if (AI.enabled()) { hint.textContent = '✨ Enter: KI erkennt Aufgabe, Tag und Uhrzeit'; hint.classList.add('live'); return; }
       const p = parseQuick(v);
       const bits = [];
       if (p.due) bits.push('📅 ' + U.relDay(U.parseDate(p.due)) + (p.time ? ' ' + p.time : ''));
@@ -314,6 +337,7 @@ const Todos = (() => {
       hint.textContent = bits.length ? 'Erkannt: ' + bits.join(' · ') : 'Enter zum Hinzufügen';
       hint.classList.add('live');
     };
+    updateHint('');
     // Vorschau ohne Listen anzulegen
     input.addEventListener('input', () => {
       const v = input.value.replace(/#([\wäöüÄÖÜß-]+)/g, (m, name) => Store.state.todoLists.some((l) => l.name.toLowerCase().startsWith(name.toLowerCase())) ? m : '');

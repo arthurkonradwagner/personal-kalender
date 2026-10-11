@@ -399,6 +399,7 @@ const Dialogs = (() => {
       row('Kalenderwochen anzeigen', chk('showWeekNumbers')),
       row('Tagesansicht scrollt zu', sel('dayStartHour', Array.from({ length: 13 }, (_, i) => [i + 4, `${U.pad(i + 4)}:00 Uhr`]), true), 'wenn heute nicht sichtbar ist'),
       row('Standarddauer neuer Termine', sel('defaultDuration', [[15, '15 Minuten'], [30, '30 Minuten'], [45, '45 Minuten'], [60, '1 Stunde'], [90, '1,5 Stunden'], [120, '2 Stunden']], true)),
+      aiSection(),
       h('h4', null, 'Feiertage & Aufgaben'),
       row('Feiertage anzeigen', chk('holidays')),
       row('Bundesland', sel('holidayState', Object.entries(Holidays.STATES))),
@@ -407,7 +408,7 @@ const Dialogs = (() => {
       h('h4', null, 'Daten'),
       h('p', { class: 'muted' }, 'Alle Daten liegen nur hier im Browser (localStorage). Mach ab und zu eine Sicherung.'),
       h('div', { class: 'set-btns' },
-        h('button', { class: 'btn btn-outline', onclick: () => U.download(`kalender-sicherung-${U.dateKey(new Date())}.json`, JSON.stringify(S, null, 2), 'application/json') }, '⬇ Sicherung speichern (.json)'),
+        h('button', { class: 'btn btn-outline', onclick: () => U.download(`kalender-sicherung-${U.dateKey(new Date())}.json`, JSON.stringify({ ...S, settings: { ...S.settings, aiKey: '' } }, null, 2), 'application/json') }, '⬇ Sicherung speichern (.json)'),
         h('button', { class: 'btn btn-outline', onclick: () => fileJson.click() }, '⬆ Sicherung laden'), fileJson),
       h('div', { class: 'set-btns' },
         h('button', { class: 'btn btn-outline', onclick: () => U.download(`kalender-${U.dateKey(new Date())}.ics`, ICS.exportEvents(S.events, S.calendars), 'text/calendar') }, '⬇ Alle Termine als .ics exportieren')),
@@ -419,6 +420,41 @@ const Dialogs = (() => {
           if (ok) { Store.reset(); App.applyTheme(); App.toast('Zurückgesetzt', { undo: true }); }
         } }, 'Alles zurücksetzen')));
     Modal.open(content, { width: 600, cls: 'modal-settings' });
+  }
+
+  function aiSection() {
+    const st = Store.state.settings;
+    const prov = h('select', null, h('option', { value: '' }, 'Aus'),
+      ...Object.entries(AI.PROVIDERS).map(([k, p]) => h('option', { value: k, selected: st.aiProvider === k }, p.name + (k === 'gemini' ? ' (kostenlos)' : ' (empfohlen)'))));
+    const key = h('input', { type: 'password', placeholder: 'API-Schlüssel einfügen', value: st.aiKey || '', autocomplete: 'off', spellcheck: false });
+    const msg = h('small', { class: 'ai-msg' });
+    const help = h('p', { class: 'muted small' });
+    const updHelp = () => {
+      help.innerHTML = prov.value === 'gemini'
+        ? 'Schlüssel kostenlos holen: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> → „Create API key“ → kopieren und hier einfügen.'
+        : prov.value === 'claude'
+          ? 'Schlüssel holen: <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">platform.claude.com</a> → „Create Key“ → kopieren und hier einfügen. Braucht etwas Guthaben (wenige Cent im Monat).'
+          : 'Mit KI kannst du Aufgaben ganz frei eintippen, z. B. „am Freitag nach der Arbeit noch Geschenk für Mama kaufen“.';
+      key.parentNode && (key.closest('.set-row').hidden = !prov.value);
+    };
+    const refreshHint = () => U.$('#todoAddInput').dispatchEvent(new Event('input'));
+    prov.addEventListener('change', () => { Store.setSetting('aiProvider', prov.value); msg.textContent = ''; updHelp(); refreshHint(); });
+    key.addEventListener('change', () => { Store.setSetting('aiKey', key.value.trim()); msg.textContent = ''; refreshHint(); });
+    const testBtn = h('button', { type: 'button', class: 'btn btn-outline small', onclick: async () => {
+      Store.setSetting('aiKey', key.value.trim());
+      if (!AI.enabled()) { msg.textContent = 'Bitte Anbieter wählen und Schlüssel einfügen.'; return; }
+      msg.textContent = 'Teste …'; testBtn.disabled = true;
+      try { msg.textContent = (await AI.test()) ? '✓ Funktioniert' : 'Antwort war leer.'; }
+      catch (e) { msg.textContent = e.userMsg || 'Fehler: ' + e.message; }
+      testBtn.disabled = false;
+    } }, 'Testen');
+    const box = h('div', null, h('h4', null, '✨ KI für Aufgaben'),
+      h('label', { class: 'set-row' }, h('span', null, 'Anbieter'), prov),
+      help,
+      h('div', { class: 'set-row ai-key-row' }, h('span', null, 'Schlüssel', h('small', null, 'bleibt privat in deinem Konto')), h('div', { class: 'ai-key' }, key, testBtn)),
+      msg);
+    setTimeout(updHelp);
+    return box;
   }
 
   function syncSection() {
