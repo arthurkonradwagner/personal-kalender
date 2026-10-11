@@ -122,6 +122,7 @@ const Sync = (() => {
   function fehler(e) {
     const c = e && e.code || '';
     if (c.includes('invalid-credential') || c.includes('wrong-password') || c.includes('user-not-found') || c.includes('invalid-login')) return 'E-Mail oder Passwort ist falsch.';
+    if (c.includes('operation-not-allowed')) return 'Die Anmeldung mit E-Mail/Passwort ist in Firebase noch nicht aktiviert (Authentication → Sign-in method).';
     if (c.includes('too-many-requests')) return 'Zu viele Versuche. Bitte kurz warten.';
     if (c.includes('network')) return 'Keine Internetverbindung.';
     if (c.includes('invalid-email')) return 'Die E-Mail-Adresse ist ungültig.';
