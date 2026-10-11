@@ -59,6 +59,7 @@ const Store = (() => {
       }
     } catch (e) { console.warn('Laden fehlgeschlagen', e); }
     state = defaults();
+    state._fresh = true; // Beispieldaten eines neuen Geräts: beim ersten Sync nicht ins Konto übernehmen
     save();
   }
 
@@ -76,24 +77,101 @@ const Store = (() => {
   }
 
   function emit(kind) {
-    if (kind !== 'remote') state._updatedAt = Date.now();
+    if (kind !== 'remote') stamp();
     save(); listeners.forEach((fn) => fn(kind));
   }
 
+  // ---------- Sync-Grundlage: jeder Eintrag merkt sich, wann er zuletzt geändert wurde ----------
+  // _u = Änderungszeit eines Eintrags, _del = gelöschte Einträge mit Zeitpunkt, _setAt = Änderungszeit der Einstellungen.
+  // Beim Abgleich gewinnt pro Eintrag die neuere Version. So kann ein alter Stand nichts Neueres mehr löschen.
+  const COLS = ['calendars', 'events', 'todoLists', 'todos'];
   // Einstellungen, die pro Gerät bleiben und nicht synchronisiert werden
   const LOCAL_SETTINGS = ['view', 'sidebarOpen', 'todoOpen', 'todoFilter', 'todoListFilter', 'dayStartHour'];
-  function exportForSync() {
-    const copy = JSON.parse(JSON.stringify(state));
-    for (const k of LOCAL_SETTINGS) delete copy.settings[k];
-    return copy;
+  const TOMB_DAYS = 120;
+  let known = null;
+  const itemJson = (it) => { const { _u, ...rest } = it; return JSON.stringify(rest); };
+  const syncedSettings = (st) => { const o = { ...st }; for (const k of LOCAL_SETTINGS) delete o[k]; return o; };
+  const settingsJson = () => JSON.stringify([syncedSettings(state.settings), state.defaultCalendar]);
+  function index() {
+    known = { settings: settingsJson() };
+    for (const c of COLS) known[c] = new Map(state[c].map((it) => [it.id, itemJson(it)]));
   }
-  function applyRemote(data, updatedAt) {
-    const def = defaults();
-    const local = {};
-    for (const k of LOCAL_SETTINGS) local[k] = state.settings[k];
-    state = { ...def, ...data, settings: { ...def.settings, ...(data.settings || {}), ...local } };
-    state._updatedAt = updatedAt;
-    emit('remote');
+  function stamp() {
+    const now = Date.now();
+    if (!known) index();
+    state._del = state._del || {};
+    for (const c of COLS) {
+      const seen = new Set();
+      for (const it of state[c]) {
+        seen.add(it.id);
+        if (known[c].get(it.id) !== itemJson(it)) it._u = now;
+      }
+      for (const id of known[c].keys()) if (!seen.has(id)) state._del[c + ':' + id] = now;
+    }
+    if (known.settings !== settingsJson()) state._setAt = now;
+    index();
+  }
+
+  function exportForSync() {
+    const s = state;
+    return JSON.parse(JSON.stringify({
+      version: s.version, calendars: s.calendars, defaultCalendar: s.defaultCalendar, events: s.events,
+      todoLists: s.todoLists, todos: s.todos, settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
+    }));
+  }
+  // Zwei Stände zusammenführen (a = lokal, b = Server). Nichts geht verloren, pro Eintrag gewinnt der neuere.
+  function merge(a, b) {
+    const minT = Date.now() - TOMB_DAYS * 86400000;
+    const del = {};
+    for (const src of [a._del || {}, b._del || {}]) for (const [k, t] of Object.entries(src)) if (t > minT && !(del[k] >= t)) del[k] = t;
+    const out = { version: Math.max(a.version || 2, b.version || 2) };
+    for (const c of COLS) {
+      const map = new Map();
+      for (const it of [...(a[c] || []), ...(b[c] || [])]) {
+        const cur = map.get(it.id);
+        if (!cur || (it._u || 0) > (cur._u || 0)) map.set(it.id, it);
+      }
+      out[c] = [...map.values()].filter((it) => {
+        const t = del[c + ':' + it.id];
+        if (t == null) return true;
+        if ((it._u || 0) > t) { delete del[c + ':' + it.id]; return true; } // wiederhergestellt
+        return false;
+      });
+    }
+    const newer = (b._setAt || 0) > (a._setAt || 0) ? b : a;
+    out.settings = syncedSettings(newer.settings || {});
+    out.defaultCalendar = newer.defaultCalendar;
+    out._setAt = Math.max(a._setAt || 0, b._setAt || 0);
+    out._del = del;
+    if (!out.calendars.some((c) => c.id === out.defaultCalendar)) out.defaultCalendar = out.calendars[0]?.id;
+    return out;
+  }
+  // stabile Textform zum Vergleichen
+  const canon = (v) => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, key) => { o[key] = x[key]; return o; }, {}) : x));
+  function normalize(data) {
+    return merge({ calendars: [], events: [], todoLists: [], todos: [], settings: {}, _setAt: -1 }, data);
+  }
+  // Server-Stand einarbeiten. Gibt zurück, ob der Server etwas Älteres hat (dann hochladen).
+  function mergeRemote(remote) {
+    const r = normalize(remote);
+    if (state._fresh) {
+      // neues Gerät: Beispieldaten verwerfen, Konto-Stand übernehmen
+      delete state._fresh;
+      for (const c of COLS) state[c] = [];
+      state._del = {}; state._setAt = -1;
+      index();
+    }
+    const local = exportForSync();
+    const merged = merge(local, r);
+    if (canon(merged) !== canon(local)) {
+      const def = defaults();
+      const keep = {};
+      for (const k of LOCAL_SETTINGS) keep[k] = state.settings[k];
+      state = { ...state, ...merged, settings: { ...def.settings, ...merged.settings, ...keep } };
+      index();
+      emit('remote');
+    }
+    return canon(merged) !== canon(r);
   }
   const subscribe = (fn) => listeners.add(fn);
 
@@ -174,11 +252,12 @@ const Store = (() => {
 
   window.addEventListener('beforeunload', flush);
   // Mehrere Tabs synchron halten
-  window.addEventListener('storage', (e) => { if (e.key === KEY && e.newValue) { state = JSON.parse(e.newValue); listeners.forEach((fn) => fn('all')); } });
+  window.addEventListener('storage', (e) => { if (e.key === KEY && e.newValue) { state = JSON.parse(e.newValue); index(); listeners.forEach((fn) => fn('all')); } });
 
   load();
+  index();
   return {
-    get state() { return state; }, subscribe, emit, save, snapshot, undo, exportForSync, applyRemote,
+    get state() { return state; }, subscribe, emit, save, snapshot, undo, exportForSync, merge, mergeRemote,
     calendar, addCalendar, updateCalendar, removeCalendar,
     event, addEvent, updateEvent, removeEvent,
     todo, addTodo, updateTodo, removeTodo, toggleTodo,

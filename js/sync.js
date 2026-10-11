@@ -7,7 +7,7 @@ const Sync = (() => {
   const cfg = window.FIREBASE_CONFIG;
   const enabled = !!(cfg && cfg.apiKey);
   let auth = null, db = null, user = null, docRef = null, unsub = null;
-  let uploadTimer = null, firstSnap = true, status = 'off';
+  let uploadTimer = null, uploading = false, again = false, status = 'off';
 
   function loadScript(src) {
     return new Promise((res, rej) => {
@@ -46,27 +46,25 @@ const Sync = (() => {
     auth.onAuthStateChanged((u) => {
       if (u) { hideLogin(); start(u); } else { stop(); showLogin(); }
     });
-    window.addEventListener('online', () => status === 'offline' && setStatus('ok'));
+    window.addEventListener('online', () => { if (status === 'offline') setStatus('ok'); if (user) scheduleUpload(); });
     window.addEventListener('offline', () => setStatus('offline'));
     Store.subscribe((kind) => { if (kind !== 'remote' && user) scheduleUpload(); });
   }
 
   function start(u) {
     user = u;
-    firstSnap = true;
     docRef = db.collection('users').doc(u.uid);
     unsub = docRef.onSnapshot({ includeMetadataChanges: true }, (snap) => {
       if (snap.metadata.hasPendingWrites) { setStatus(navigator.onLine ? 'saving' : 'offline'); return; }
-      setStatus(navigator.onLine ? 'ok' : 'offline');
-      const localAt = Store.state._updatedAt || 0;
-      if (!snap.exists) { if (firstSnap) upload(); firstSnap = false; return; }
-      const d = snap.data();
-      if ((d.updatedAt || 0) > localAt) {
-        try { Store.applyRemote(JSON.parse(d.data), d.updatedAt); App.applyTheme(); } catch (e) { console.error(e); }
-      } else if (firstSnap && localAt > (d.updatedAt || 0)) {
-        upload();
-      }
-      firstSnap = false;
+      if (!uploadTimer && !uploading) setStatus(navigator.onLine ? 'ok' : 'offline');
+      const fromServer = !snap.metadata.fromCache;
+      if (!snap.exists) { if (fromServer) scheduleUpload(); return; }
+      try {
+        // Nie einfach ersetzen, sondern zusammenführen: pro Eintrag gewinnt die neuere Änderung
+        const serverOlder = Store.mergeRemote(JSON.parse(snap.data().data));
+        App.applyTheme();
+        if (serverOlder && fromServer) scheduleUpload();
+      } catch (e) { console.error(e); }
     }, (err) => { console.error(err); setStatus('error', 'Sync-Fehler: ' + err.message); });
   }
 
@@ -81,11 +79,31 @@ const Sync = (() => {
     setStatus(navigator.onLine ? 'saving' : 'offline');
     uploadTimer = setTimeout(upload, 700);
   }
-  function upload() {
-    if (!docRef) return;
-    const at = Store.state._updatedAt || Date.now();
-    docRef.set({ data: JSON.stringify(Store.exportForSync()), updatedAt: at, device: navigator.userAgent.slice(0, 120) })
-      .catch((e) => { console.error(e); setStatus('error', 'Speichern fehlgeschlagen: ' + e.message); });
+  // Hochladen als Transaktion: Server-Stand lesen, mit dem lokalen zusammenführen, Ergebnis schreiben.
+  // Offline wird gewartet, bis wieder Internet da ist (dann kommt das 'online'-Ereignis).
+  async function upload() {
+    uploadTimer = null;
+    if (!docRef || !navigator.onLine) return;
+    if (uploading) { again = true; return; }
+    uploading = true;
+    try {
+      const merged = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(docRef);
+        let data = Store.exportForSync();
+        if (snap.exists) data = Store.merge(data, JSON.parse(snap.data().data));
+        tx.set(docRef, { data: JSON.stringify(data), updatedAt: Date.now(), format: 2, device: navigator.userAgent.slice(0, 120) });
+        return data;
+      });
+      Store.mergeRemote(merged);
+      App.applyTheme();
+      setStatus('ok');
+    } catch (e) {
+      console.error(e);
+      setStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Speichern fehlgeschlagen: ' + e.message : undefined);
+    } finally {
+      uploading = false;
+      if (again) { again = false; scheduleUpload(); }
+    }
   }
 
   // ---------- Anmeldung ----------
