@@ -475,7 +475,11 @@ const App = (() => {
       if ((view === 'month' || view === 'year') && e.shiftKey && Math.abs(e.deltaY) > 20) { e.preventDefault(); step(e.deltaY > 0 ? 1 : -1); }
     }, { passive: false });
 
-    window.addEventListener('resize', U.debounce(() => { if (view === 'month') render(); }, 150));
+    let lastH = window.innerHeight;
+    window.addEventListener('resize', U.debounce(() => {
+      const hChanged = Math.abs(window.innerHeight - lastH) > 40; lastH = window.innerHeight;
+      if (view === 'month' || (isMobile() && hChanged && (view === 'week' || view === 'day'))) render();
+    }, 150));
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
     Store.subscribe((kind) => {
@@ -489,7 +493,7 @@ const App = (() => {
     const now = new Date();
     if (U.dateKey(now) !== lastDay) { lastDay = U.dateKey(now); render(); return; }
     const nl = U.$('.now-line');
-    if (nl) nl.style.top = `${(U.minutesOfDay(now) / 60) * Views.HOUR_PX}px`;
+    if (nl) nl.style.top = `${(U.minutesOfDay(now) / 60) * Views.hourPx()}px`;
     Todos.renderProgress();
     checkReminders();
   }

@@ -3,7 +3,8 @@
 
 const Views = (() => {
   const { h } = U;
-  const HOUR_PX = 48;
+  let HOUR_PX = 48;        // Höhe einer Stunde; am Handy so, dass der ganze Tag ab Tagesbeginn passt
+  const isPhone = () => window.matchMedia('(max-width: 820px)').matches;
   const SNAP = 15;
   const LONG_MS = 450;     // so lange muss man auf dem Handy drücken, um einen Termin anzulegen
   const TOUCH_SLOP = 10;   // mehr Bewegung = Wischen/Scrollen statt langem Druck
@@ -346,6 +347,11 @@ const Views = (() => {
 
     // Zeitraster
     const scroller = h('div', { class: 'tg-scroll' });
+    const startHour = Store.state.settings.dayStartHour ?? 7;
+    tg.append(head, adRow, scroller);
+    root.append(tg);
+    if (!isPhone()) HOUR_PX = 48;
+    else if (scroller.clientHeight > 0) HOUR_PX = Math.max(24, Math.min(48, (scroller.clientHeight - 8) / (24 - startHour)));
     const body = h('div', { class: 'tg-body', style: { gridTemplateColumns: colsTpl, height: `${24 * HOUR_PX}px` } });
     const gutter = h('div', { class: 'tg-gutter' });
     for (let hr = 1; hr < 24; hr++) gutter.append(h('div', { class: 'tg-hour', style: { top: `${hr * HOUR_PX}px` } }, `${U.pad(hr)}:00`));
@@ -370,14 +376,11 @@ const Views = (() => {
       body.append(col);
     });
     scroller.append(body);
-    tg.append(head, adRow, scroller);
-    root.append(tg);
 
-    // Scrollposition: aktuelle Uhrzeit oder Tagesbeginn
-    const startHour = Store.state.settings.dayStartHour ?? 7;
+    // Scrollposition: aktuelle Uhrzeit oder Tagesbeginn (am Handy immer Tagesbeginn, dann passt alles bis Mitternacht)
     const inView = days.some((d) => U.sameDay(d, today));
-    const target = inView ? Math.max(0, (U.minutesOfDay(today) / 60 - 2)) : startHour;
-    scroller.scrollTop = opts.scrollTop != null ? opts.scrollTop : Math.max(0, target * HOUR_PX);
+    const target = inView && !isPhone() ? Math.max(0, (U.minutesOfDay(today) / 60 - 2)) : startHour;
+    scroller.scrollTop = opts.scrollTop != null ? opts.scrollTop : Math.max(0, target * HOUR_PX - (isPhone() ? 8 : 0));
 
     attachGridInteractions(body, cols, days, scroller);
   }
@@ -706,5 +709,5 @@ const Views = (() => {
     else renderAgenda(root, date);
   }
 
-  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, HOUR_PX, isTouchBusy: () => touchBusy };
+  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, hourPx: () => HOUR_PX, isTouchBusy: () => touchBusy };
 })();
