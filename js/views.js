@@ -88,7 +88,7 @@ const Views = (() => {
   };
 
   function chipStyle(color, past) {
-    return { background: color, color: U.textOn(color), opacity: past ? 0.62 : 1 };
+    return { background: color, color: U.textOn(color), opacity: past ? 0.62 : 1, '--ev': color };
   }
 
   // ---------- Zeitraum & Titel ----------
@@ -397,7 +397,7 @@ const Views = (() => {
       style: {
         top: `${top}px`, height: `${height}px`,
         left: `calc(${it.col * w}% + 1px)`, width: `calc(${w * it.span}% - ${it.col + it.span < it.cols ? 4 : 6}px)`,
-        background: o.color, color: U.textOn(o.color), zIndex: 2 + it.col,
+        background: o.color, color: U.textOn(o.color), zIndex: 2 + it.col, '--ev': o.color,
       },
       dataset: { key: o.key },
     });
