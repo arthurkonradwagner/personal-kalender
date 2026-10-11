@@ -5,6 +5,35 @@ const Views = (() => {
   const { h } = U;
   const HOUR_PX = 48;
   const SNAP = 15;
+  const LONG_MS = 450;     // so lange muss man auf dem Handy drücken, um einen Termin anzulegen
+  const TOUCH_SLOP = 10;   // mehr Bewegung = Wischen/Scrollen statt langem Druck
+  let touchBusy = false;   // läuft gerade ein Ziehen nach langem Druck? Dann kein Wischen
+  const vibrate = () => { try { navigator.vibrate && navigator.vibrate(20); } catch (e) { /* egal */ } };
+
+  // Langer Druck auf dem Handy (nur Touch). Kurzes Tippen ruft onTap auf.
+  function onLongPress(el, cb, onTap) {
+    let lp = null, suppressClick = false;
+    el.addEventListener('pointerdown', (e) => {
+      suppressClick = false;
+      if (e.pointerType !== 'touch') return;
+      const st = { x: e.clientX, y: e.clientY, target: e.target };
+      st.timer = setTimeout(() => { lp = null; suppressClick = true; vibrate(); cb(st.target); }, LONG_MS);
+      lp = st;
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (lp && (Math.abs(e.clientX - lp.x) > TOUCH_SLOP || Math.abs(e.clientY - lp.y) > TOUCH_SLOP)) { clearTimeout(lp.timer); lp = null; suppressClick = true; }
+    });
+    const end = (e) => { if (lp) { clearTimeout(lp.timer); lp = null; if (e.type === 'pointerup') suppressClick = 'tap'; } };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', (e) => { end(e); suppressClick = true; });
+    el.addEventListener('contextmenu', (e) => { if (e.pointerType === 'touch' || suppressClick) e.preventDefault(); });
+    // gibt zurück: 'mouse' (normaler Klick), 'tap' (kurz getippt) oder false (schon erledigt)
+    return (e) => {
+      const r = suppressClick === 'tap' ? 'tap' : suppressClick ? false : 'mouse';
+      suppressClick = false;
+      return r;
+    };
+  }
 
   // ---------- Daten für einen Zeitraum ----------
   function occurrences(from, to, opts = {}) {
@@ -151,8 +180,13 @@ const Views = (() => {
           list.append(more);
         }
         cell.append(list);
+        const newAt9 = () => App.openEditor({ allDay: false, start: U.dtKey(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9)), end: U.dtKey(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10)) });
+        const clickKind = onLongPress(cell, (t) => { if (!t.closest('.chip, .more-link')) newAt9(); });
         cell.addEventListener('click', (e) => {
           if (e.target.closest('.chip, .more-link')) return;
+          const k = clickKind(e);
+          if (k === 'tap') { App.goto(d, 'day'); return; }
+          if (!k) return;
           App.openEditor({ allDay: false, start: U.dtKey(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9)), end: U.dtKey(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10)) });
         });
         // Drag & Drop Ziel
@@ -252,7 +286,7 @@ const Views = (() => {
     return items;
   }
 
-  function renderTimeGrid(root, date, nDays) {
+  function renderTimeGrid(root, date, nDays, opts = {}) {
     const { from } = range(nDays === 1 ? 'day' : 'week', date);
     const to = U.addDays(from, nDays);
     const occ = occurrences(from, to);
@@ -281,7 +315,9 @@ const Views = (() => {
     const adArea = h('div', { class: 'tg-ad-area', style: { gridColumn: `2 / span ${nDays}` } });
     for (let i = 0; i < nDays; i++) {
       const slot = h('div', { class: 'tg-ad-slot', style: { left: `${(i / nDays) * 100}%`, width: `${100 / nDays}%` } });
-      slot.addEventListener('click', () => App.openEditor({ allDay: true, start: U.dateKey(days[i]), end: U.dateKey(days[i]) }));
+      const newAllDay = () => App.openEditor({ allDay: true, start: U.dateKey(days[i]), end: U.dateKey(days[i]) });
+      const clickKind = onLongPress(slot, newAllDay);
+      slot.addEventListener('click', (e) => { if (clickKind(e) === 'mouse') newAllDay(); });
       adArea.append(slot);
     }
     const lanes = [];
@@ -341,7 +377,7 @@ const Views = (() => {
     const startHour = Store.state.settings.dayStartHour ?? 7;
     const inView = days.some((d) => U.sameDay(d, today));
     const target = inView ? Math.max(0, (U.minutesOfDay(today) / 60 - 2)) : startHour;
-    scroller.scrollTop = Math.max(0, target * HOUR_PX);
+    scroller.scrollTop = opts.scrollTop != null ? opts.scrollTop : Math.max(0, target * HOUR_PX);
 
     attachGridInteractions(body, cols, days, scroller);
   }
@@ -393,14 +429,9 @@ const Views = (() => {
     };
     const snap = (m) => Math.round(m / SNAP) * SNAP;
 
-    body.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      const evEl = e.target.closest('.tg-event');
-      const colEl = e.target.closest('.tg-col');
-      if (!colEl) return;
-      App.hidePopover();
-      const ci = +colEl.dataset.idx;
-      const m = minuteAt(e.clientY);
+    let pending = null; // Touch: wartet auf langen Druck
+    const cancelPending = () => { if (pending) { clearTimeout(pending.timer); pending = null; } };
+    const startDrag = (e, evEl, ci, m) => {
       if (evEl) {
         const o = evEl._occ;
         const mode = e.target.classList.contains('ev-resize') ? 'resize' : 'move';
@@ -409,11 +440,49 @@ const Views = (() => {
         const sm = Math.floor(m / SNAP) * SNAP;
         drag = { mode: 'create', ci0: ci, m0: sm, x0: e.clientX, y0: e.clientY, moved: false };
       }
+    };
+
+    body.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const evEl = e.target.closest('.tg-event');
+      const colEl = e.target.closest('.tg-col');
+      if (!colEl) return;
+      App.hidePopover();
+      const ci = +colEl.dataset.idx;
+      const m = minuteAt(e.clientY);
+      if (e.pointerType === 'touch') {
+        // Handy: nichts sofort anlegen, damit Wischen und Scrollen frei bleiben
+        cancelPending();
+        const pid = e.pointerId, x = e.clientX, y = e.clientY, target = e.target;
+        pending = { x, y, evEl, timer: setTimeout(() => {
+          pending = null;
+          startDrag({ clientX: x, clientY: y, target }, evEl, ci, m);
+          drag.touch = true; touchBusy = true;
+          vibrate();
+          try { body.setPointerCapture(pid); } catch (err) { /* Finger schon weg */ }
+          if (drag.mode === 'create') {
+            const s = drag.m0, en = s + (Store.state.settings.defaultDuration || 60);
+            drag.ghost = h('div', { class: 'tg-ghost' });
+            Object.assign(drag.ghost.style, { top: `${(s / 60) * HOUR_PX}px`, height: `${((en - s) / 60) * HOUR_PX}px` });
+            drag.ghost.textContent = `${U.pad(Math.floor(s / 60))}:${U.pad(s % 60)} – ${U.pad(Math.floor(en / 60) % 24)}:${U.pad(en % 60)}`;
+            cols[ci].append(drag.ghost);
+          } else drag.el.classList.add('lp-active');
+        }, LONG_MS) };
+        return;
+      }
+      startDrag(e, evEl, ci, m);
       body.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
+    // Nach dem langen Druck darf der Finger nicht mehr die Seite scrollen
+    body.addEventListener('touchmove', (e) => { if (drag && drag.touch) e.preventDefault(); }, { passive: false });
+    body.addEventListener('contextmenu', (e) => { if (pending || (drag && drag.touch)) e.preventDefault(); });
 
     body.addEventListener('pointermove', (e) => {
+      if (pending) {
+        if (Math.abs(e.clientX - pending.x) > TOUCH_SLOP || Math.abs(e.clientY - pending.y) > TOUCH_SLOP) cancelPending();
+        return;
+      }
       if (!drag) return;
       if (!drag.moved && Math.abs(e.clientY - drag.y0) < 4 && Math.abs(e.clientX - drag.x0) < 4) return;
       drag.moved = true;
@@ -454,9 +523,23 @@ const Views = (() => {
     });
 
     const finish = (e) => {
+      if (pending) {
+        // kurz getippt: Termin zeigen, auf leerer Fläche nichts tun
+        const p = pending; cancelPending();
+        if (p.evEl) App.showPopover(p.evEl._occ, p.evEl);
+        return;
+      }
       if (!drag) return;
-      const d = drag; drag = null;
+      const d = drag; drag = null; touchBusy = false;
+      if (d.el) d.el.classList.remove('lp-active');
       if (d.mode === 'create') {
+        if (d.touch && !d.moved) {
+          // langer Druck ohne Ziehen: Termin mit Standarddauer an dieser Stelle
+          const s = d.m0, en = s + (Store.state.settings.defaultDuration || 60);
+          const day = days[d.ci0];
+          App.openEditor({ allDay: false, start: U.dtKey(U.addMinutes(day, s)), end: U.dtKey(U.addMinutes(day, en)) }, () => d.ghost && d.ghost.remove());
+          return;
+        }
         const day = days[d.ci0];
         let s, en;
         if (!d.moved) {
@@ -485,7 +568,7 @@ const Views = (() => {
       }
     };
     body.addEventListener('pointerup', finish);
-    body.addEventListener('pointercancel', () => { if (drag) { if (drag.ghost && drag.mode === 'create') drag.ghost.remove(); else if (drag.moved) { App.render(); } drag = null; } });
+    body.addEventListener('pointercancel', () => { cancelPending(); touchBusy = false; if (drag) { if (drag.el) drag.el.classList.remove('lp-active'); if (drag.ghost && drag.mode === 'create') drag.ghost.remove(); else if (drag.moved) { App.render(); } drag = null; } });
   }
 
   // ---------- Jahresansicht ----------
@@ -613,15 +696,15 @@ const Views = (() => {
 
   function resetMini() { miniDate = null; }
 
-  function render(root, view, date) {
+  function render(root, view, date, opts = {}) {
     root.innerHTML = '';
     root.className = 'view-container view-' + view;
     if (view === 'month') renderMonth(root, date);
-    else if (view === 'week') renderTimeGrid(root, date, 7);
-    else if (view === 'day') renderTimeGrid(root, date, 1);
+    else if (view === 'week') renderTimeGrid(root, date, 7, opts);
+    else if (view === 'day') renderTimeGrid(root, date, 1, opts);
     else if (view === 'year') renderYear(root, date);
     else renderAgenda(root, date);
   }
 
-  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, HOUR_PX };
+  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, HOUR_PX, isTouchBusy: () => touchBusy };
 })();

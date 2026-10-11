@@ -111,7 +111,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 2px 6px; border-radius: 5p
 body.no-sidebar .sidebar { margin-left: calc(-1 * var(--sidebar-w)); }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 0 8px 8px 0; }
 body.no-sidebar .main { padding-left: 8px; }
-.view-container { flex: 1; min-height: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; margin-top: 8px; }
+.view-container { position: relative; touch-action: pan-y; flex: 1; min-height: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; margin-top: 8px; }
 .todo-panel { width: var(--todo-w); flex: none; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; transition: margin .2s; }
 body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 
@@ -211,7 +211,12 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .tg-ad-slot:hover { background: var(--surface-2); }
 .ad-item { position: absolute; z-index: 2; }
 .tg-scroll { flex: 1; overflow-y: scroll; position: relative; }
-.tg-body { position: relative; user-select: none; touch-action: pan-y; }
+.tg-body { position: relative; user-select: none; touch-action: pan-y; -webkit-touch-callout: none; -webkit-user-select: none; }
+.view-container.swiping { overflow: hidden; }
+.swipe-pane { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--surface); will-change: transform; }
+.swipe-pane.side { pointer-events: none; }
+.tg-event.lp-active { outline: 2px solid var(--accent, #4f8cff); outline-offset: 1px; }
+.month-cell, .tg-ad-slot { -webkit-touch-callout: none; }
 .tg-gutter { position: relative; }
 .tg-hour { position: absolute; right: 8px; transform: translateY(-50%); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tg-col { position: relative; border-left: 1px solid var(--border); cursor: cell; }

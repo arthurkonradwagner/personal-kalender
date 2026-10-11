@@ -10,7 +10,7 @@ const App = (() => {
   let lastDay = U.dateKey(new Date());
 
   // ---------- Rendern ----------
-  function render() {
+  function render(opts = {}) {
     const vc = U.$('#viewContainer');
     if (query) {
       vc.innerHTML = '';
@@ -19,7 +19,7 @@ const App = (() => {
       Views.renderAgenda(vc, now, { query, from: U.addDays(now, -365), to: U.addDays(now, 730) });
       U.$('#periodTitle').innerHTML = `<span>Suche</span>`;
     } else {
-      Views.render(vc, view, date);
+      Views.render(vc, view, date, opts);
       const t = Views.title(view, date);
       U.$('#periodTitle').innerHTML = `<span>${U.esc(t.main)}</span>${t.sub ? `<small>${U.esc(t.sub)}</small>` : ''}`;
     }
@@ -96,14 +96,17 @@ const App = (() => {
     if (query) clearSearch(true);
     if (!silent) render();
   }
-  function step(dir) {
-    if (view === 'day') date = U.addDays(date, dir);
-    else if (view === 'week') date = U.addDays(date, 7 * dir);
-    else if (view === 'month') date = U.addMonths(U.startOfMonth(date), dir);
-    else if (view === 'year') date = new Date(date.getFullYear() + dir, date.getMonth(), 1);
-    else date = U.addDays(date, 30 * dir);
+  function stepDate(d, dir) {
+    if (view === 'day') return U.addDays(d, dir);
+    if (view === 'week') return U.addDays(d, 7 * dir);
+    if (view === 'month') return U.addMonths(U.startOfMonth(d), dir);
+    if (view === 'year') return new Date(d.getFullYear() + dir, d.getMonth(), 1);
+    return U.addDays(d, 30 * dir);
+  }
+  function step(dir, opts) {
+    date = stepDate(date, dir);
     Views.resetMini();
-    render();
+    render(opts);
   }
 
   // ---------- Termine ----------
@@ -365,16 +368,73 @@ const App = (() => {
       Store.save(); applyPanels();
     }));
     // Wischen zum Blättern (Handy)
-    let sw = null;
+    // Die Nachbar-Woche (bzw. Tag/Monat) gleitet mit dem Finger herein und rastet beim Loslassen ein.
+    let sw = null, swAnim = false;
     const vc = U.$('#viewContainer');
-    vc.addEventListener('touchstart', (e) => { if (e.touches.length === 1) sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }; }, { passive: true });
-    vc.addEventListener('touchend', (e) => {
-      if (!sw) return;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
-      if (Math.abs(dx) > 70 && Math.abs(dy) < 50 && Date.now() - sw.t < 600 && !query && view !== 'agenda') step(dx < 0 ? 1 : -1);
+    const gridScroll = (root) => { const s = root.querySelector('.tg-scroll'); return s ? s.scrollTop : null; };
+    const swStart = () => {
+      const scrollTop = gridScroll(vc);
+      const cur = h('div', { class: 'swipe-pane' });
+      cur.append(...vc.childNodes);
+      const mk = (dir) => {
+        const p = h('div', { class: 'swipe-pane' });
+        Views.render(p, view, stepDate(date, dir), { scrollTop });
+        p.className = 'swipe-pane side';
+        return p;
+      };
+      sw.panes = [mk(-1), cur, mk(1)];
+      vc.classList.add('swiping');
+      vc.append(...sw.panes);
+      // Scrollposition erst setzen, wenn die Seiten im Dokument sind
+      if (scrollTop != null) sw.panes.forEach((p) => { const sc = p.querySelector('.tg-scroll'); if (sc) sc.scrollTop = scrollTop; });
+      sw.w = vc.clientWidth;
+      sw.scrollTop = scrollTop;
+    };
+    const swSet = (s, dx, anim) => s.panes.forEach((p, i) => {
+      p.style.transition = anim ? 'transform .26s cubic-bezier(.2,.7,.3,1)' : 'none';
+      p.style.transform = `translate3d(${(i - 1) * s.w + dx}px,0,0)`;
+    });
+    const swEnd = (dir) => {
+      const s = sw; sw = null; swAnim = true;
+      const panes = s.panes;
+      swSet(s, -dir * s.w, true);
+      setTimeout(() => {
+        swAnim = false;
+        if (dir) step(dir, { scrollTop: s.scrollTop });
+        else { vc.classList.remove('swiping'); vc.replaceChildren(...panes[1].childNodes); }
+      }, 270);
+    };
+    vc.addEventListener('touchstart', (e) => {
       sw = null;
+      if (e.touches.length !== 1 || swAnim || query || view === 'agenda') return;
+      sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, mode: null, lx: e.touches[0].clientX, lt: Date.now(), v: 0 };
     }, { passive: true });
+    vc.addEventListener('touchmove', (e) => {
+      if (!sw) return;
+      if (e.touches.length !== 1 || (!sw.mode && Views.isTouchBusy())) { if (sw.mode === 'h') swEnd(0); else sw = null; return; }
+      const t = e.touches[0];
+      const dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+      if (!sw.mode) {
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) { sw.mode = 'h'; sw.x = t.clientX; swStart(); swSet(sw, 0, false); }
+        else if (Math.abs(dy) > 10) { sw = null; return; }
+        else return;
+      }
+      if (e.cancelable) e.preventDefault();
+      const now = Date.now();
+      if (now > sw.lt) { sw.v = (t.clientX - sw.lx) / (now - sw.lt); sw.lx = t.clientX; sw.lt = now; }
+      swSet(sw, t.clientX - sw.x, false);
+    }, { passive: false });
+    const swRelease = (e) => {
+      if (!sw || sw.mode !== 'h') { sw = null; return; }
+      const t = e.changedTouches[0];
+      const dx = t ? t.clientX - sw.x : 0;
+      let dir = 0;
+      if (dx < -sw.w * 0.25 || (sw.v < -0.35 && dx < -20)) dir = 1;
+      else if (dx > sw.w * 0.25 || (sw.v > 0.35 && dx > 20)) dir = -1;
+      swEnd(dir);
+    };
+    vc.addEventListener('touchend', swRelease, { passive: true });
+    vc.addEventListener('touchcancel', swRelease, { passive: true });
 
     const search = U.$('#searchInput');
     search.addEventListener('input', U.debounce(() => { query = search.value.trim(); render(); }, 200));

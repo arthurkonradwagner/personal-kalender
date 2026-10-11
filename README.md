@@ -18,6 +18,8 @@ Doppelklick auf **index.html** öffnet den Kalender im Browser (Chrome, Edge ode
 ## Handy und Sync
 Online gestellt läuft der Kalender als App auf dem Handy: Seite im Browser öffnen, dann „Zum Startbildschirm hinzufügen“ (iPhone: Safari → Teilen; Android: Chrome → Menü ⋮ → App installieren). Nach dem Anmelden werden Termine und Aufgaben über Firebase zwischen allen Geräten abgeglichen. Offline geht alles weiter und wird nachgeholt, sobald wieder Internet da ist.
 
+Am Handy: nach links oder rechts wischen blättert zur nächsten Woche (bzw. Tag oder Monat), die neue Woche gleitet dabei mit herein. Einen neuen Termin legst du an, indem du kurz länger auf die gewünschte Uhrzeit drückst (danach ziehen = Dauer). Kurz auf einen Termin tippen zeigt ihn an; ein Termin lässt sich nach langem Druck verschieben. Kurz auf einen Tag in der Monatsansicht tippen öffnet die Tagesansicht.
+
 Die Zugangsdaten für Firebase stehen in `js/firebase-config.js`. Steht dort `null`, läuft der Kalender nur lokal im Browser. Die Sicherheitsregeln für die Datenbank liegen in `firestore.rules`.
 
 ## Wichtig zu den Daten (ohne Sync)
