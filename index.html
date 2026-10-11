@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12141b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kalender">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Personal Kalender</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='8' width='56' height='52' rx='10' fill='%236d5efc'/%3E%3Crect x='4' y='8' width='56' height='16' rx='8' fill='%234a3fd1'/%3E%3Ctext x='32' y='52' font-size='26' font-family='Arial' font-weight='700' text-anchor='middle' fill='white'%3E%E2%9C%93%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Kopfzeile -->
+  <header class="topbar">
+    <button class="icon-btn" id="btnToggleSidebar" title="Seitenleiste ein-/ausblenden">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <div class="brand">
+      <span class="brand-logo">✓</span>
+      <span class="brand-name">Personal Kalender</span>
+    </div>
+    <button class="btn btn-outline" id="btnToday" title="Heute (T)">Heute</button>
+    <div class="nav-arrows">
+      <button class="icon-btn" id="btnPrev" title="Zurück (←)"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="icon-btn" id="btnNext" title="Weiter (→)"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+    <h1 id="periodTitle" class="period-title"></h1>
+    <div class="topbar-spacer"></div>
+    <select id="viewSelect" class="view-select" title="Ansicht">
+      <option value="day">Tag</option>
+      <option value="week">Woche</option>
+      <option value="month">Monat</option>
+      <option value="year">Jahr</option>
+      <option value="agenda">Liste</option>
+    </select>
+    <button class="icon-btn sync-status" id="syncStatus" title="Sync" hidden>
+      <svg viewBox="0 0 24 24"><path d="M7 18a5 5 0 0 1-.6-9.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9H7z"/></svg>
+    </button>
+    <div class="search-box">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      <input id="searchInput" type="search" placeholder="Termine suchen (/)" autocomplete="off">
+    </div>
+    <div class="view-switch" id="viewSwitch">
+      <button data-view="day" title="Tag (D)">Tag</button>
+      <button data-view="week" title="Woche (W)">Woche</button>
+      <button data-view="month" title="Monat (M)">Monat</button>
+      <button data-view="year" title="Jahr (Y)">Jahr</button>
+      <button data-view="agenda" title="Terminübersicht (A)">Liste</button>
+    </div>
+    <button class="icon-btn" id="btnTheme" title="Hell/Dunkel">
+      <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnSettings" title="Einstellungen">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnToggleTodos" title="Aufgaben ein-/ausblenden">
+      <svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+    </button>
+  </header>
+
+  <div class="layout">
+    <!-- Linke Seitenleiste -->
+    <aside class="sidebar" id="sidebar">
+      <button class="btn-create" id="btnCreate" title="Neuer Termin (N)">
+        <span class="plus">+</span> Erstellen
+      </button>
+      <div class="mini-cal" id="miniCal"></div>
+
+      <div class="side-section">
+        <div class="side-head">
+          <span>Meine Kalender</span>
+          <button class="icon-btn small" id="btnAddCalendar" title="Kalender hinzufügen">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <ul class="cal-list" id="calList"></ul>
+      </div>
+
+      <div class="side-section">
+        <div class="side-head"><span>Weitere</span></div>
+        <ul class="cal-list" id="extraCalList"></ul>
+      </div>
+
+      <div class="side-footer">
+        <span class="kbd-hint">Tastenkürzel: <kbd>?</kbd></span>
+      </div>
+    </aside>
+
+    <!-- Hauptbereich -->
+    <main class="main" id="main">
+      <div id="viewContainer" class="view-container"></div>
+    </main>
+
+    <!-- Rechte Seitenleiste: Aufgaben -->
+    <aside class="todo-panel" id="todoPanel">
+      <div class="progress-card" id="progressCard">
+        <div class="ring-wrap">
+          <svg class="ring" viewBox="0 0 120 120">
+            <circle class="ring-bg" cx="60" cy="60" r="52"/>
+            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"/>
+          </svg>
+          <div class="ring-label"><span id="progressPct">0</span><small>%</small></div>
+        </div>
+        <div class="progress-text">
+          <div class="progress-title">Heute erledigt</div>
+          <div class="progress-sub" id="progressSub"></div>
+          <div class="progress-msg" id="progressMsg"></div>
+        </div>
+      </div>
+
+      <div class="todo-head">
+        <div class="todo-tabs" id="todoTabs">
+          <button data-filter="today">Heute</button>
+          <button data-filter="upcoming">Geplant</button>
+          <button data-filter="all">Alle</button>
+          <button data-filter="done">Erledigt</button>
+        </div>
+      </div>
+      <div class="todo-lists" id="todoListChips"></div>
+
+      <form class="todo-add" id="todoAddForm" autocomplete="off">
+        <span class="todo-add-plus">+</span>
+        <input id="todoAddInput" placeholder="Aufgabe hinzufügen …" maxlength="300">
+      </form>
+      <div class="todo-hint" id="todoHint">Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“</div>
+
+      <div class="todo-items" id="todoItems"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- Handy: untere Leiste -->
+<div class="side-backdrop" id="sideBackdrop"></div>
+<nav class="bottom-nav" id="bottomNav">
+  <button data-tab="cal" class="active">
+    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    <span>Kalender</span>
+  </button>
+  <button class="fab" id="fabCreate" title="Neuer Termin"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button data-tab="todo">
+    <svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+    <span>Aufgaben <b id="navPct"></b></span>
+  </button>
+</nav>
+
+<!-- Anmeldung (nur mit Sync) -->
+<div class="login-screen" id="loginScreen" hidden></div>
+
+<!-- Popover für Terminvorschau -->
+<div class="popover" id="popover" hidden></div>
+
+<!-- Kontextmenü -->
+<div class="ctx-menu" id="ctxMenu" hidden></div>
+
+<!-- Toasts -->
+<div class="toasts" id="toasts"></div>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/store.js"></script>
+<script src="js/recurrence.js"></script>
+<script src="js/holidays.js"></script>
+<script src="js/ics.js"></script>
+<script src="js/views.js"></script>
+<script src="js/todos.js"></script>
+<script src="js/dialogs.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

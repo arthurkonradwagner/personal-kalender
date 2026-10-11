@@ -1,0 +1,627 @@
+/* Kalenderansichten: Tag, Woche, Monat, Jahr, Liste */
+'use strict';
+
+const Views = (() => {
+  const { h } = U;
+  const HOUR_PX = 48;
+  const SNAP = 15;
+
+  // ---------- Daten für einen Zeitraum ----------
+  function occurrences(from, to, opts = {}) {
+    const S = Store.state;
+    const out = [];
+    const calMap = Object.fromEntries(S.calendars.map((c) => [c.id, c]));
+    for (const ev of S.events) {
+      const cal = calMap[ev.calId];
+      if (!cal || (!cal.visible && !opts.includeHidden)) continue;
+      for (const o of Recur.expand(ev, from, to)) {
+        let title = ev.title || '(Ohne Titel)';
+        if (cal.type === 'birthday') {
+          title = '🎂 ' + title;
+          if (ev.birthYear) {
+            const age = o.start.getFullYear() - ev.birthYear;
+            if (age > 0) title += ` (${age})`;
+          }
+        }
+        out.push({
+          kind: 'event', id: ev.id, ev, cal, start: o.start, end: o.end, idx: o.idx,
+          allDay: !!ev.allDay, title, color: ev.color || cal.color, recurring: !!(ev.rrule && ev.rrule.freq),
+          key: ev.id + '|' + U.dateKey(o.start),
+        });
+      }
+    }
+    if (S.settings.holidays && !opts.noExtras) {
+      for (const hd of Holidays.inRange(from, to, S.settings.holidayState)) {
+        out.push({ kind: 'holiday', id: 'hol-' + hd.key, start: hd.date, end: U.addDays(hd.date, 1), allDay: true, title: hd.name, color: '#0b8043', readonly: true, key: 'hol' + hd.key });
+      }
+    }
+    if (S.settings.showTodosInCalendar && !opts.noExtras) {
+      for (const t of S.todos) {
+        if (!t.due) continue;
+        const d = U.parseDate(t.due);
+        if (d < U.startOfDay(from) || d >= to) continue;
+        const list = Store.todoList(t.listId);
+        out.push({ kind: 'todo', id: t.id, todo: t, start: d, end: U.addDays(d, 1), allDay: true,
+          title: (t.time ? t.time + ' ' : '') + t.title, color: list ? list.color : '#6d5efc', done: t.done, key: 'todo' + t.id });
+      }
+    }
+    return out;
+  }
+
+  const sortOcc = (a, b) => {
+    const ka = a.kind === 'holiday' ? 0 : a.kind === 'todo' ? 2 : 1;
+    const kb = b.kind === 'holiday' ? 0 : b.kind === 'todo' ? 2 : 1;
+    if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+    if (ka !== kb) return ka - kb;
+    if (+a.start !== +b.start) return a.start - b.start;
+    return (b.end - b.start) - (a.end - a.start);
+  };
+
+  function chipStyle(color, past) {
+    return { background: color, color: U.textOn(color), opacity: past ? 0.62 : 1 };
+  }
+
+  // ---------- Zeitraum & Titel ----------
+  function range(view, date) {
+    const ws = Store.state.settings.weekStart;
+    switch (view) {
+      case 'day': { const s = U.startOfDay(date); return { from: s, to: U.addDays(s, 1), days: 1 }; }
+      case 'week': { const s = U.startOfWeek(date, ws); return { from: s, to: U.addDays(s, 7), days: 7 }; }
+      case 'month': {
+        const first = U.startOfMonth(date);
+        const s = U.startOfWeek(first, ws);
+        const last = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+        const weeks = Math.ceil((U.daysBetween(s, last) + 1) / 7);
+        return { from: s, to: U.addDays(s, weeks * 7), weeks };
+      }
+      case 'year': return { from: new Date(date.getFullYear(), 0, 1), to: new Date(date.getFullYear() + 1, 0, 1) };
+      default: { const s = U.startOfDay(date); return { from: s, to: U.addDays(s, 60) }; }
+    }
+  }
+
+  function title(view, date) {
+    if (view === 'day') return { main: `${date.getDate()}. ${U.MONTHS[date.getMonth()]} ${date.getFullYear()}`, sub: U.WEEKDAYS[date.getDay()] + ' · KW ' + U.isoWeek(date) };
+    if (view === 'week') {
+      const { from } = range('week', date);
+      const to = U.addDays(from, 6);
+      let main;
+      if (from.getMonth() === to.getMonth()) main = `${U.MONTHS[from.getMonth()]} ${from.getFullYear()}`;
+      else if (from.getFullYear() === to.getFullYear()) main = `${U.MONTHS_SHORT[from.getMonth()]} – ${U.MONTHS_SHORT[to.getMonth()]} ${to.getFullYear()}`;
+      else main = `${U.MONTHS_SHORT[from.getMonth()]} ${from.getFullYear()} – ${U.MONTHS_SHORT[to.getMonth()]} ${to.getFullYear()}`;
+      return { main, sub: 'KW ' + U.isoWeek(U.addDays(from, 3)) };
+    }
+    if (view === 'month') return { main: `${U.MONTHS[date.getMonth()]} ${date.getFullYear()}` };
+    if (view === 'year') return { main: String(date.getFullYear()) };
+    return { main: 'Terminübersicht', sub: `ab ${U.fmtDateShort(date)}` };
+  }
+
+  // ---------- Monatsansicht ----------
+  function renderMonth(root, date) {
+    const { from, to, weeks } = range('month', date);
+    const ws = Store.state.settings.weekStart;
+    const showWn = Store.state.settings.showWeekNumbers;
+    const occ = occurrences(from, to).sort(sortOcc);
+    const today = new Date();
+
+    const head = h('div', { class: 'month-head' + (showWn ? ' with-wn' : '') });
+    if (showWn) head.append(h('div', { class: 'wn-head' }));
+    for (let i = 0; i < 7; i++) head.append(h('div', null, U.WEEKDAYS_SHORT[(ws + i) % 7]));
+    const grid = h('div', { class: 'month-grid' + (showWn ? ' with-wn' : ''), style: { gridTemplateRows: `repeat(${weeks}, 1fr)` } });
+    root.append(h('div', { class: 'month' }, head, grid));
+
+    // Platz je Zelle berechnen
+    const avail = root.clientHeight - head.offsetHeight;
+    const rowH = Math.max(80, avail / weeks);
+    const maxItems = Math.max(1, Math.floor((rowH - 30) / 22));
+
+    // Vorkommen je Tag
+    const byDay = new Map();
+    for (const o of occ) {
+      const last = o.allDay ? U.addDays(o.end, -1) : new Date(o.end - 1);
+      for (let d = U.startOfDay(o.start); d <= last && d < to; d = U.addDays(d, 1)) {
+        if (d < from) continue;
+        const k = U.dateKey(d);
+        if (!byDay.has(k)) byDay.set(k, []);
+        byDay.get(k).push({ o, first: U.sameDay(d, o.start), last: U.sameDay(d, last) });
+      }
+    }
+
+    for (let w = 0; w < weeks; w++) {
+      if (showWn) {
+        const wd = U.addDays(from, w * 7 + 3);
+        grid.append(h('div', { class: 'wn-cell', title: 'Kalenderwoche' }, U.isoWeek(wd)));
+      }
+      for (let i = 0; i < 7; i++) {
+        const d = U.addDays(from, w * 7 + i);
+        const key = U.dateKey(d);
+        const items = byDay.get(key) || [];
+        const cell = h('div', {
+          class: 'month-cell' + (d.getMonth() !== date.getMonth() ? ' other' : '') + (U.sameDay(d, today) ? ' today' : '') + (d.getDay() === 0 || d.getDay() === 6 ? ' weekend' : ''),
+          dataset: { date: key },
+        });
+        const num = h('button', { class: 'day-num', title: 'Tagesansicht öffnen' }, d.getDate() === 1 ? `${d.getDate()}. ${U.MONTHS_SHORT[d.getMonth()]}` : d.getDate());
+        num.addEventListener('click', (e) => { e.stopPropagation(); App.goto(d, 'day'); });
+        cell.append(num);
+        const list = h('div', { class: 'month-items' });
+        const visible = items.length > maxItems ? maxItems - 1 : items.length;
+        items.slice(0, visible).forEach(({ o, first, last }) => list.append(monthChip(o, first, last, d)));
+        if (items.length > visible) {
+          const more = h('button', { class: 'more-link' }, `+${items.length - visible} weitere`);
+          more.addEventListener('click', (e) => { e.stopPropagation(); showDayList(d, items.map((x) => x.o), more); });
+          list.append(more);
+        }
+        cell.append(list);
+        cell.addEventListener('click', (e) => {
+          if (e.target.closest('.chip, .more-link')) return;
+          App.openEditor({ allDay: false, start: U.dtKey(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9)), end: U.dtKey(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 10)) });
+        });
+        // Drag & Drop Ziel
+        cell.addEventListener('dragover', (e) => { e.preventDefault(); cell.classList.add('drop'); });
+        cell.addEventListener('dragleave', () => cell.classList.remove('drop'));
+        cell.addEventListener('drop', (e) => {
+          e.preventDefault(); cell.classList.remove('drop');
+          const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}');
+          if (!data.key) return;
+          const o = occ.find((x) => x.key === data.key);
+          if (!o) return;
+          const delta = U.daysBetween(U.parseDate(data.from), d);
+          if (delta === 0) return;
+          if (o.kind === 'todo') { Store.updateTodo(o.id, { due: U.dateKey(U.addDays(o.start, delta)) }); return; }
+          App.moveOccurrence(o, U.addDays(o.start, delta), U.addDays(o.end, delta));
+        });
+        grid.append(cell);
+      }
+    }
+  }
+
+  function monthChip(o, first, last, day) {
+    const past = o.end < new Date();
+    let el;
+    if (o.kind === 'todo') {
+      el = h('div', { class: 'chip chip-todo' + (o.done ? ' done' : ''), style: { '--c': o.color }, title: o.title },
+        h('span', { class: 'todo-box' }, o.done ? '✓' : ''), h('span', { class: 'chip-title' }, o.title));
+    } else if (o.allDay || !U.sameDay(o.start, new Date(o.end - 1))) {
+      el = h('div', { class: 'chip chip-fill' + (first ? '' : ' cont-l') + (last ? '' : ' cont-r') + (o.kind === 'holiday' ? ' holiday' : ''),
+        style: chipStyle(o.color, past && o.kind !== 'holiday'), title: o.title },
+      !o.allDay && first ? h('span', { class: 'chip-time' }, U.fmtTime(o.start)) : null,
+      h('span', { class: 'chip-title' }, o.title));
+    } else {
+      el = h('div', { class: 'chip chip-dot' + (past ? ' past' : ''), title: `${U.fmtTime(o.start)} ${o.title}` },
+        h('span', { class: 'dot', style: { background: o.color } }),
+        h('span', { class: 'chip-time' }, U.fmtTime(o.start)),
+        h('span', { class: 'chip-title' }, o.title));
+    }
+    el.addEventListener('click', (e) => { e.stopPropagation(); clickOcc(o, el); });
+    if (!o.readonly) {
+      el.draggable = true;
+      el.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({ key: o.key, from: U.dateKey(day) }));
+        e.dataTransfer.effectAllowed = 'move';
+        App.hidePopover();
+      });
+    }
+    return el;
+  }
+
+  function clickOcc(o, el) {
+    if (o.kind === 'todo') { App.toggleTodo(o.id); return; }
+    App.showPopover(o, el);
+  }
+
+  function showDayList(d, list, anchor) {
+    const box = h('div', { class: 'day-list-pop' },
+      h('div', { class: 'dlp-head' }, h('div', { class: 'dlp-wd' }, U.WEEKDAYS_SHORT[d.getDay()]), h('div', { class: 'dlp-num' }, d.getDate())));
+    for (const o of list.slice().sort(sortOcc)) {
+      const c = monthChip(o, true, true, d);
+      c.draggable = false;
+      box.append(c);
+    }
+    App.showCustomPopover(box, anchor);
+  }
+
+  // ---------- Tages- & Wochenansicht ----------
+  function layoutColumns(items) {
+    // items: [{start,end}] eines Tages -> setzt col / cols
+    items.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
+    let cluster = [], clusterEnd = -1;
+    const flush = () => {
+      const cols = [];
+      for (const it of cluster) {
+        let c = cols.findIndex((end) => end <= it.s);
+        if (c === -1) { c = cols.length; cols.push(it.e); } else cols[c] = it.e;
+        it.col = c;
+      }
+      for (const it of cluster) {
+        it.cols = cols.length;
+        // nach rechts ausdehnen, wenn Nachbarspalten frei sind
+        let span = 1;
+        for (let c = it.col + 1; c < cols.length; c++) {
+          if (cluster.some((o) => o.col === c && o.s < it.e && o.e > it.s)) break;
+          span++;
+        }
+        it.span = span;
+      }
+      cluster = []; clusterEnd = -1;
+    };
+    for (const it of items) {
+      if (cluster.length && it.s >= clusterEnd) flush();
+      cluster.push(it);
+      clusterEnd = Math.max(clusterEnd, it.e);
+    }
+    if (cluster.length) flush();
+    return items;
+  }
+
+  function renderTimeGrid(root, date, nDays) {
+    const { from } = range(nDays === 1 ? 'day' : 'week', date);
+    const to = U.addDays(from, nDays);
+    const occ = occurrences(from, to);
+    const today = new Date();
+    const days = Array.from({ length: nDays }, (_, i) => U.addDays(from, i));
+
+    const tg = h('div', { class: 'tg' + (nDays === 1 ? ' tg-day' : '') });
+    const colsTpl = `var(--gutter) repeat(${nDays}, minmax(0, 1fr))`;
+
+    // Kopf
+    const head = h('div', { class: 'tg-head', style: { gridTemplateColumns: colsTpl } });
+    head.append(h('div', { class: 'tg-gutter-head' }, Store.state.settings.showWeekNumbers ? 'KW ' + U.isoWeek(U.addDays(from, Math.min(3, nDays - 1))) : ''));
+    for (const d of days) {
+      const dh = h('div', { class: 'tg-dayhead' + (U.sameDay(d, today) ? ' today' : '') + (d < U.startOfDay(today) ? ' past' : '') },
+        h('div', { class: 'wd' }, U.WEEKDAYS_SHORT[d.getDay()]),
+        h('button', { class: 'dn', title: 'Tagesansicht' }, d.getDate()));
+      dh.querySelector('.dn').addEventListener('click', () => App.goto(d, 'day'));
+      head.append(dh);
+    }
+
+    // Ganztägig-Zeile
+    const allday = occ.filter((o) => o.allDay || (o.end - o.start) >= U.DAY_MS).sort(sortOcc);
+    const timed = occ.filter((o) => !(o.allDay || (o.end - o.start) >= U.DAY_MS));
+    const adRow = h('div', { class: 'tg-allday', style: { gridTemplateColumns: colsTpl } });
+    adRow.append(h('div', { class: 'tg-gutter-ad' }, 'ganztägig'));
+    const adArea = h('div', { class: 'tg-ad-area', style: { gridColumn: `2 / span ${nDays}` } });
+    for (let i = 0; i < nDays; i++) {
+      const slot = h('div', { class: 'tg-ad-slot', style: { left: `${(i / nDays) * 100}%`, width: `${100 / nDays}%` } });
+      slot.addEventListener('click', () => App.openEditor({ allDay: true, start: U.dateKey(days[i]), end: U.dateKey(days[i]) }));
+      adArea.append(slot);
+    }
+    const lanes = [];
+    for (const o of allday) {
+      const sIdx = Math.max(0, U.daysBetween(from, o.start));
+      const eIdx = Math.min(nDays - 1, U.daysBetween(from, o.allDay ? U.addDays(o.end, -1) : new Date(o.end - 1)));
+      let lane = lanes.findIndex((end) => end < sIdx);
+      if (lane === -1) { lane = lanes.length; lanes.push(eIdx); } else lanes[lane] = eIdx;
+      const contL = o.start < from, contR = (o.allDay ? U.addDays(o.end, -1) : o.end) >= to;
+      let el;
+      if (o.kind === 'todo') {
+        el = h('div', { class: 'chip chip-todo ad-item' + (o.done ? ' done' : ''), style: { '--c': o.color } },
+          h('span', { class: 'todo-box' }, o.done ? '✓' : ''), h('span', { class: 'chip-title' }, o.title));
+      } else {
+        el = h('div', { class: 'chip chip-fill ad-item' + (contL ? ' cont-l' : '') + (contR ? ' cont-r' : '') + (o.kind === 'holiday' ? ' holiday' : ''),
+          style: chipStyle(o.color, o.end < today && o.kind !== 'holiday') },
+        !o.allDay ? h('span', { class: 'chip-time' }, U.fmtTime(o.start)) : null, h('span', { class: 'chip-title' }, o.title));
+      }
+      Object.assign(el.style, { left: `calc(${(sIdx / nDays) * 100}% + 2px)`, width: `calc(${((eIdx - sIdx + 1) / nDays) * 100}% - 4px)`, top: `${lane * 24 + 2}px` });
+      el.title = o.title;
+      el.addEventListener('click', (e) => { e.stopPropagation(); clickOcc(o, el); });
+      adArea.append(el);
+    }
+    adArea.style.height = `${Math.max(1, lanes.length) * 24 + 6}px`;
+    adRow.append(adArea);
+
+    // Zeitraster
+    const scroller = h('div', { class: 'tg-scroll' });
+    const body = h('div', { class: 'tg-body', style: { gridTemplateColumns: colsTpl, height: `${24 * HOUR_PX}px` } });
+    const gutter = h('div', { class: 'tg-gutter' });
+    for (let hr = 1; hr < 24; hr++) gutter.append(h('div', { class: 'tg-hour', style: { top: `${hr * HOUR_PX}px` } }, `${U.pad(hr)}:00`));
+    body.append(gutter);
+
+    const cols = [];
+    days.forEach((d, i) => {
+      const col = h('div', { class: 'tg-col' + (U.sameDay(d, today) ? ' today' : '') + (d.getDay() === 0 || d.getDay() === 6 ? ' weekend' : ''), dataset: { idx: i } });
+      for (let hr = 0; hr < 24; hr++) col.append(h('div', { class: 'tg-line', style: { top: `${hr * HOUR_PX}px` } }), h('div', { class: 'tg-line half', style: { top: `${hr * HOUR_PX + HOUR_PX / 2}px` } }));
+      const dayStart = d, dayEnd = U.addDays(d, 1);
+      const items = timed.filter((o) => o.start < dayEnd && o.end > dayStart).map((o) => ({
+        o, s: Math.max(0, (o.start - dayStart) / 60000), e: Math.min(1440, (o.end - dayStart) / 60000),
+      }));
+      layoutColumns(items);
+      for (const it of items) col.append(timedEvent(it, d));
+      if (U.sameDay(d, today)) {
+        const nl = h('div', { class: 'now-line' }, h('span', { class: 'now-dot' }));
+        nl.style.top = `${(U.minutesOfDay(today) / 60) * HOUR_PX}px`;
+        col.append(nl);
+      }
+      cols.push(col);
+      body.append(col);
+    });
+    scroller.append(body);
+    tg.append(head, adRow, scroller);
+    root.append(tg);
+
+    // Scrollposition: aktuelle Uhrzeit oder Tagesbeginn
+    const startHour = Store.state.settings.dayStartHour ?? 7;
+    const inView = days.some((d) => U.sameDay(d, today));
+    const target = inView ? Math.max(0, (U.minutesOfDay(today) / 60 - 2)) : startHour;
+    scroller.scrollTop = Math.max(0, target * HOUR_PX);
+
+    attachGridInteractions(body, cols, days, scroller);
+  }
+
+  function timedEvent(it, day) {
+    const { o } = it;
+    const top = (it.s / 60) * HOUR_PX;
+    const height = Math.max(18, ((it.e - it.s) / 60) * HOUR_PX - 2);
+    const w = 100 / it.cols;
+    const past = o.end < new Date();
+    const short = height < 36;
+    const el = h('div', {
+      class: 'tg-event' + (short ? ' short' : '') + (past ? ' past' : ''),
+      style: {
+        top: `${top}px`, height: `${height}px`,
+        left: `calc(${it.col * w}% + 1px)`, width: `calc(${w * it.span}% - ${it.col + it.span < it.cols ? 4 : 6}px)`,
+        background: o.color, color: U.textOn(o.color), zIndex: 2 + it.col,
+      },
+      dataset: { key: o.key },
+    });
+    const timeTxt = `${U.fmtTime(o.start)} – ${U.fmtTime(o.end)}`;
+    if (short) el.append(h('div', { class: 'ev-line' }, h('b', null, o.title), ', ', U.fmtTime(o.start)));
+    else {
+      el.append(h('div', { class: 'ev-title' }, o.title), h('div', { class: 'ev-time' }, timeTxt));
+      if (o.ev.location && height > 54) el.append(h('div', { class: 'ev-loc' }, o.ev.location));
+    }
+    if (o.recurring) el.append(h('span', { class: 'ev-rec', title: 'Wiederholt sich' }, '↻'));
+    const startsToday = U.sameDay(o.start, day);
+    const endsToday = o.end <= U.addDays(day, 1);
+    if (endsToday) el.append(h('div', { class: 'ev-resize', title: 'Dauer ändern' }));
+    el._occ = o;
+    el._startsToday = startsToday;
+    el.title = `${o.title}\n${timeTxt}${o.ev.location ? '\n' + o.ev.location : ''}`;
+    return el;
+  }
+
+  function attachGridInteractions(body, cols, days, scroller) {
+    let drag = null;
+    const minuteAt = (clientY) => {
+      const r = body.getBoundingClientRect();
+      return Math.max(0, Math.min(1440, ((clientY - r.top) / HOUR_PX) * 60));
+    };
+    const colAt = (clientX) => {
+      for (let i = 0; i < cols.length; i++) {
+        const r = cols[i].getBoundingClientRect();
+        if (clientX >= r.left && clientX < r.right) return i;
+      }
+      return clientX < cols[0].getBoundingClientRect().left ? 0 : cols.length - 1;
+    };
+    const snap = (m) => Math.round(m / SNAP) * SNAP;
+
+    body.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const evEl = e.target.closest('.tg-event');
+      const colEl = e.target.closest('.tg-col');
+      if (!colEl) return;
+      App.hidePopover();
+      const ci = +colEl.dataset.idx;
+      const m = minuteAt(e.clientY);
+      if (evEl) {
+        const o = evEl._occ;
+        const mode = e.target.classList.contains('ev-resize') ? 'resize' : 'move';
+        drag = { mode, o, el: evEl, x0: e.clientX, y0: e.clientY, m0: m, ci0: ci, moved: false };
+      } else {
+        const sm = Math.floor(m / SNAP) * SNAP;
+        drag = { mode: 'create', ci0: ci, m0: sm, x0: e.clientX, y0: e.clientY, moved: false };
+      }
+      body.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    body.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      if (!drag.moved && Math.abs(e.clientY - drag.y0) < 4 && Math.abs(e.clientX - drag.x0) < 4) return;
+      drag.moved = true;
+      const m = minuteAt(e.clientY);
+      // automatisch scrollen am Rand
+      const sr = scroller.getBoundingClientRect();
+      if (e.clientY < sr.top + 30) scroller.scrollTop -= 12; else if (e.clientY > sr.bottom - 30) scroller.scrollTop += 12;
+
+      if (drag.mode === 'create') {
+        const a = drag.m0, b = snap(m);
+        const s = Math.min(a, b), en = Math.max(a + SNAP, b);
+        if (!drag.ghost) { drag.ghost = h('div', { class: 'tg-ghost' }); cols[drag.ci0].append(drag.ghost); }
+        Object.assign(drag.ghost.style, { top: `${(s / 60) * HOUR_PX}px`, height: `${((en - s) / 60) * HOUR_PX}px` });
+        drag.ghost.textContent = `${U.pad(Math.floor(s / 60))}:${U.pad(s % 60)} – ${U.pad(Math.floor(en / 60) % 24)}:${U.pad(en % 60)}`;
+        drag.s = s; drag.e = en;
+      } else if (drag.o.readonly) {
+        return;
+      } else if (drag.mode === 'move') {
+        const dm = snap(m - drag.m0);
+        const dd = colAt(e.clientX) - drag.ci0;
+        drag.dm = dm; drag.dd = dd;
+        const ns = U.addMinutes(U.addDays(drag.o.start, dd), dm);
+        const ne = U.addMinutes(U.addDays(drag.o.end, dd), dm);
+        if (!drag.ghost) { drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('dragging'); drag.el.classList.add('drag-src'); }
+        const target = cols[drag.ci0 + dd];
+        if (target && drag.ghost.parentNode !== target) target.append(drag.ghost);
+        const top = (U.minutesOfDay(ns) / 60) * HOUR_PX;
+        Object.assign(drag.ghost.style, { top: `${top}px`, left: '1px', width: 'calc(100% - 6px)', zIndex: 50 });
+        const t = drag.ghost.querySelector('.ev-time');
+        if (t) t.textContent = `${U.fmtTime(ns)} – ${U.fmtTime(ne)}`;
+      } else if (drag.mode === 'resize') {
+        const em = Math.max(snap(m), U.minutesOfDay(drag.o.start) + SNAP);
+        drag.newEndMin = em;
+        drag.el.style.height = `${Math.max(18, ((em - (drag.el._startsToday ? U.minutesOfDay(drag.o.start) : 0)) / 60) * HOUR_PX - 2)}px`;
+        const t = drag.el.querySelector('.ev-time');
+        if (t) t.textContent = `${U.fmtTime(drag.o.start)} – ${U.pad(Math.floor(em / 60) % 24)}:${U.pad(em % 60)}`;
+      }
+    });
+
+    const finish = (e) => {
+      if (!drag) return;
+      const d = drag; drag = null;
+      if (d.mode === 'create') {
+        const day = days[d.ci0];
+        let s, en;
+        if (!d.moved) {
+          s = Math.floor(d.m0 / 30) * 30;
+          en = s + (Store.state.settings.defaultDuration || 60);
+        } else { s = d.s; en = d.e; }
+        const sd = U.addMinutes(day, s), ed = U.addMinutes(day, en);
+        App.openEditor({ allDay: false, start: U.dtKey(sd), end: U.dtKey(ed) }, () => d.ghost && d.ghost.remove());
+        if (!d.moved) {
+          // kurze Vorschau, damit man sieht wo der Termin entsteht
+          d.ghost = h('div', { class: 'tg-ghost' }, `${U.fmtTime(sd)} – ${U.fmtTime(ed)}`);
+          Object.assign(d.ghost.style, { top: `${(s / 60) * HOUR_PX}px`, height: `${((en - s) / 60) * HOUR_PX}px` });
+          cols[d.ci0].append(d.ghost);
+        }
+        return;
+      }
+      if (!d.moved) { App.showPopover(d.o, d.el); return; }
+      if (d.o.readonly) return;
+      if (d.mode === 'move') {
+        if (!d.dm && !d.dd) { d.ghost && d.ghost.remove(); d.el.classList.remove('drag-src'); return; }
+        App.moveOccurrence(d.o, U.addMinutes(U.addDays(d.o.start, d.dd), d.dm), U.addMinutes(U.addDays(d.o.end, d.dd), d.dm));
+      } else if (d.mode === 'resize' && d.newEndMin != null) {
+        const dayOfEnd = U.startOfDay(new Date(d.o.end - 1));
+        const ne = U.addMinutes(dayOfEnd, d.newEndMin);
+        App.moveOccurrence(d.o, d.o.start, ne);
+      }
+    };
+    body.addEventListener('pointerup', finish);
+    body.addEventListener('pointercancel', () => { if (drag) { if (drag.ghost && drag.mode === 'create') drag.ghost.remove(); else if (drag.moved) { App.render(); } drag = null; } });
+  }
+
+  // ---------- Jahresansicht ----------
+  function renderYear(root, date) {
+    const y = date.getFullYear();
+    const from = new Date(y, 0, 1), to = new Date(y + 1, 0, 1);
+    const occ = occurrences(from, to);
+    const count = new Map(), colorOf = new Map();
+    for (const o of occ) {
+      const last = o.allDay ? U.addDays(o.end, -1) : new Date(o.end - 1);
+      for (let d = U.startOfDay(o.start); d <= last; d = U.addDays(d, 1)) {
+        const k = U.dateKey(d);
+        count.set(k, (count.get(k) || 0) + 1);
+        if (!colorOf.has(k) || o.kind === 'holiday') colorOf.set(k, o.kind === 'holiday' ? 'holiday' : o.color);
+      }
+    }
+    const ws = Store.state.settings.weekStart;
+    const today = new Date();
+    const grid = h('div', { class: 'year-grid' });
+    for (let m = 0; m < 12; m++) {
+      const box = h('div', { class: 'year-month' });
+      const t = h('button', { class: 'ym-title' }, U.MONTHS[m]);
+      t.addEventListener('click', () => App.goto(new Date(y, m, 1), 'month'));
+      box.append(t);
+      const g = h('div', { class: 'ym-grid' });
+      for (let i = 0; i < 7; i++) g.append(h('div', { class: 'ym-wd' }, U.WEEKDAYS_SHORT[(ws + i) % 7][0]));
+      const first = new Date(y, m, 1);
+      const start = U.startOfWeek(first, ws);
+      for (let i = 0; i < 42; i++) {
+        const d = U.addDays(start, i);
+        const k = U.dateKey(d);
+        const inMonth = d.getMonth() === m;
+        const c = count.get(k) || 0;
+        const cell = h('button', {
+          class: 'ym-day' + (inMonth ? '' : ' other') + (U.sameDay(d, today) ? ' today' : '') + (inMonth && c ? ' has' : '') + (inMonth && colorOf.get(k) === 'holiday' ? ' hol' : ''),
+          title: inMonth && c ? `${c} Einträge` : '',
+          style: inMonth && c && colorOf.get(k) !== 'holiday' ? { '--c': colorOf.get(k) } : null,
+        }, d.getDate());
+        if (inMonth) cell.addEventListener('click', () => App.goto(d, 'day'));
+        else cell.tabIndex = -1;
+        g.append(cell);
+      }
+      box.append(g);
+      grid.append(box);
+    }
+    root.append(grid);
+  }
+
+  // ---------- Liste / Suche ----------
+  function renderAgenda(root, date, opts = {}) {
+    const from = opts.from || U.startOfDay(date);
+    const to = opts.to || U.addDays(from, opts.days || 60);
+    let occ = occurrences(from, to, { noExtras: !!opts.query }).filter((o) => o.kind !== 'todo' || !opts.query);
+    if (opts.query) {
+      const q = opts.query.toLowerCase();
+      occ = occ.filter((o) => o.kind === 'event' && [o.ev.title, o.ev.location, o.ev.notes, o.cal.name].some((s) => (s || '').toLowerCase().includes(q)));
+    }
+    occ.sort(sortOcc);
+    const wrap = h('div', { class: 'agenda' });
+    if (opts.query) wrap.append(h('div', { class: 'agenda-search-head' }, `${occ.length} Treffer für „${opts.query}“`, h('button', { class: 'btn btn-ghost', onclick: () => App.clearSearch() }, 'Suche beenden')));
+    const groups = new Map();
+    for (const o of occ) {
+      const d = o.start < from ? from : U.startOfDay(o.start);
+      const k = U.dateKey(d);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(o);
+    }
+    if (!groups.size) wrap.append(h('div', { class: 'empty' }, opts.query ? 'Keine Termine gefunden.' : 'Keine Termine in diesem Zeitraum. 🎉'));
+    const today = new Date();
+    for (const [k, list] of groups) {
+      const d = U.parseDate(k);
+      const row = h('div', { class: 'agenda-day' + (U.sameDay(d, today) ? ' today' : '') });
+      const dl = h('button', { class: 'agenda-date' }, h('span', { class: 'ad-num' }, d.getDate()), h('span', { class: 'ad-meta' }, `${U.MONTHS_SHORT[d.getMonth()]} ${d.getFullYear() !== today.getFullYear() ? d.getFullYear() : ''}, ${U.WEEKDAYS_SHORT[d.getDay()]}`));
+      dl.addEventListener('click', () => App.goto(d, 'day'));
+      const items = h('div', { class: 'agenda-items' });
+      for (const o of list) {
+        const time = o.allDay ? 'Ganztägig' : `${U.fmtTime(o.start)} – ${U.fmtTime(o.end)}`;
+        const it = h('div', { class: 'agenda-item' + (o.end < today ? ' past' : '') + (o.kind === 'todo' && o.done ? ' done' : '') },
+          o.kind === 'todo' ? h('span', { class: 'todo-box small', style: { '--c': o.color } }, o.done ? '✓' : '') : h('span', { class: 'dot', style: { background: o.color } }),
+          h('span', { class: 'ai-time' }, o.kind === 'todo' ? 'Aufgabe' : time),
+          h('span', { class: 'ai-title' }, o.title),
+          o.ev && o.ev.location ? h('span', { class: 'ai-loc' }, '📍 ' + o.ev.location) : null);
+        it.addEventListener('click', () => clickOcc(o, it));
+        items.append(it);
+      }
+      row.append(dl, items);
+      wrap.append(row);
+    }
+    if (!opts.query) {
+      const more = h('button', { class: 'btn btn-outline agenda-more' }, 'Weitere 60 Tage laden');
+      more.addEventListener('click', () => { root.innerHTML = ''; renderAgenda(root, date, { from, days: U.daysBetween(from, to) + 60 }); });
+      wrap.append(more);
+    }
+    root.append(wrap);
+  }
+
+  // ---------- Mini-Kalender in der Seitenleiste ----------
+  let miniDate = null;
+  function renderMini(root, selected, view) {
+    if (!miniDate || (selected && !miniDate._pinned)) miniDate = U.startOfMonth(selected);
+    const ws = Store.state.settings.weekStart;
+    const today = new Date();
+    root.innerHTML = '';
+    const head = h('div', { class: 'mini-head' },
+      h('span', { class: 'mini-title' }, `${U.MONTHS[miniDate.getMonth()]} ${miniDate.getFullYear()}`),
+      h('button', { class: 'icon-btn small', title: 'Vorheriger Monat', onclick: () => { miniDate = U.addMonths(miniDate, -1); miniDate._pinned = true; renderMini(root, selected, view); } }, h('span', { html: '‹' })),
+      h('button', { class: 'icon-btn small', title: 'Nächster Monat', onclick: () => { miniDate = U.addMonths(miniDate, 1); miniDate._pinned = true; renderMini(root, selected, view); } }, h('span', { html: '›' })));
+    const g = h('div', { class: 'mini-grid' });
+    for (let i = 0; i < 7; i++) g.append(h('div', { class: 'mini-wd' }, U.WEEKDAYS_SHORT[(ws + i) % 7]));
+    const start = U.startOfWeek(miniDate, ws);
+    const r = range(view === 'week' || view === 'day' ? view : 'day', selected);
+    const busy = new Set();
+    for (const o of occurrences(start, U.addDays(start, 42), { noExtras: true })) busy.add(U.dateKey(o.start));
+    for (let i = 0; i < 42; i++) {
+      const d = U.addDays(start, i);
+      const inSel = (view === 'week' || view === 'day') && d >= r.from && d < r.to;
+      const b = h('button', {
+        class: 'mini-day' + (d.getMonth() !== miniDate.getMonth() ? ' other' : '') + (U.sameDay(d, today) ? ' today' : '') + (U.sameDay(d, selected) ? ' sel' : '') + (inSel ? ' inrange' : '') + (busy.has(U.dateKey(d)) ? ' busy' : ''),
+      }, d.getDate());
+      b.addEventListener('click', () => { miniDate._pinned = false; App.goto(d); });
+      g.append(b);
+    }
+    root.append(head, g);
+  }
+
+  function resetMini() { miniDate = null; }
+
+  function render(root, view, date) {
+    root.innerHTML = '';
+    root.className = 'view-container view-' + view;
+    if (view === 'month') renderMonth(root, date);
+    else if (view === 'week') renderTimeGrid(root, date, 7);
+    else if (view === 'day') renderTimeGrid(root, date, 1);
+    else if (view === 'year') renderYear(root, date);
+    else renderAgenda(root, date);
+  }
+
+  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, HOUR_PX };
+})();
