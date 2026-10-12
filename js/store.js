@@ -38,6 +38,7 @@ const Store = (() => {
         { id: U.uid(), listId: listPrivate, title: 'Geburtstage eintragen', notes: 'Im Kalender „Geburtstage“ – wiederholt sich automatisch jährlich.', due: U.dateKey(today), time: null, priority: 2, done: false, doneAt: null, createdAt: Date.now(), order: 1,
           subtasks: [{ id: U.uid(), title: 'Familie', done: false }, { id: U.uid(), title: 'Freunde', done: false }] },
       ],
+      projects: [],
       settings: {
         view: 'week', theme: 'dark', weekStart: 1, showWeekNumbers: true,
         holidays: true, holidayState: 'ALL', showTodosInCalendar: true,
@@ -84,7 +85,7 @@ const Store = (() => {
   // ---------- Sync-Grundlage: jeder Eintrag merkt sich, wann er zuletzt geändert wurde ----------
   // _u = Änderungszeit eines Eintrags, _del = gelöschte Einträge mit Zeitpunkt, _setAt = Änderungszeit der Einstellungen.
   // Beim Abgleich gewinnt pro Eintrag die neuere Version. So kann ein alter Stand nichts Neueres mehr löschen.
-  const COLS = ['calendars', 'events', 'todoLists', 'todos'];
+  const COLS = ['calendars', 'events', 'todoLists', 'todos', 'projects'];
   // Einstellungen, die pro Gerät bleiben und nicht synchronisiert werden
   const LOCAL_SETTINGS = ['view', 'sidebarOpen', 'todoOpen', 'todoFilter', 'todoListFilter', 'dayStartHour'];
   const TOMB_DAYS = 120;
@@ -116,7 +117,7 @@ const Store = (() => {
     const s = state;
     return JSON.parse(JSON.stringify({
       version: s.version, calendars: s.calendars, defaultCalendar: s.defaultCalendar, events: s.events,
-      todoLists: s.todoLists, todos: s.todos, settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
+      todoLists: s.todoLists, todos: s.todos, projects: s.projects || [], settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
     }));
   }
   // Zwei Stände zusammenführen (a = lokal, b = Server). Nichts geht verloren, pro Eintrag gewinnt der neuere.
@@ -178,7 +179,7 @@ const Store = (() => {
   // Rückgängig: einfacher Snapshot-Stack
   const undoStack = [];
   function snapshot() {
-    undoStack.push(JSON.stringify({ events: state.events, todos: state.todos, calendars: state.calendars, todoLists: state.todoLists }));
+    undoStack.push(JSON.stringify({ events: state.events, todos: state.todos, calendars: state.calendars, todoLists: state.todoLists, projects: state.projects }));
     if (undoStack.length > 30) undoStack.shift();
   }
   function undo() {

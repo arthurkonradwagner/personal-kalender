@@ -140,6 +140,20 @@ const Todos = (() => {
   function render() {
     const S = Store.state;
     U.$$('#todoTabs button').forEach((b) => b.classList.toggle('active', b.dataset.filter === S.settings.todoFilter));
+    const isProj = S.settings.todoFilter === 'projects';
+    U.$('#projTab').classList.toggle('active', isProj);
+    const pc = Projects.openCount();
+    U.$('#projCount').textContent = pc || '';
+    U.$('.todo-panel').classList.toggle('show-projects', isProj);
+    if (isProj) {
+      const box = U.$('#todoItems');
+      const scroll = box.scrollTop;
+      box.innerHTML = '';
+      Projects.render(box);
+      box.scrollTop = scroll;
+      renderProgress();
+      return;
+    }
     // Listen-Chips
     const chips = U.$('#todoListChips');
     chips.innerHTML = '';
@@ -290,6 +304,7 @@ const Todos = (() => {
 
   function bind() {
     U.$$('#todoTabs button').forEach((b) => b.addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', b.dataset.filter); }));
+    U.$('#projTab').addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', Store.state.settings.todoFilter === 'projects' ? 'today' : 'projects'); });
     const form = U.$('#todoAddForm'), input = U.$('#todoAddInput');
     let busy = false;
     form.addEventListener('submit', async (e) => {
