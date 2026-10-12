@@ -9,6 +9,8 @@ const Views = (() => {
   const LONG_MS = 450;     // so lange muss man auf dem Handy drücken, um einen Termin anzulegen
   const TOUCH_SLOP = 10;   // mehr Bewegung = Wischen/Scrollen statt langem Druck
   let touchBusy = false;   // läuft gerade ein Ziehen nach langem Druck? Dann kein Wischen
+  let carry = null;        // Termin, der über den Wochenrand in die nächste/vorige Woche getragen wird
+  const EDGE_MS = 550;     // so lange am Rand verweilen, bis umgeblättert wird
   const vibrate = () => { try { navigator.vibrate && navigator.vibrate(20); } catch (e) { /* egal */ } };
 
   // Langer Druck auf dem Handy (nur Touch). Kurzes Tippen ruft onTap auf.
@@ -511,6 +513,39 @@ const Views = (() => {
     };
     const snap = (m) => Math.round(m / SNAP) * SNAP;
 
+    // ---- Termin über den Rand ziehen: Woche umblättern und weiter festhalten ----
+    let edge = null; // { dir, timer, bar }
+    const clearEdge = () => { if (edge) { clearTimeout(edge.timer); edge.bar.remove(); edge = null; } };
+    const edgeDir = (x) => {
+      const first = cols[0].getBoundingClientRect(), last = cols[cols.length - 1].getBoundingClientRect();
+      if (x >= last.right - (drag && drag.touch ? 22 : 10)) return 1;
+      if (x <= first.left + 2) return -1;
+      return 0;
+    };
+    function checkEdge(e) {
+      if (!drag || drag.mode !== 'move' || drag.o.readonly) { clearEdge(); return; }
+      const dir = edgeDir(e.clientX);
+      if (!dir) { clearEdge(); return; }
+      if (edge && edge.dir === dir) return;
+      clearEdge();
+      const span = days.length === 1 ? 'Tag' : 'Woche';
+      const bar = h('div', { class: 'drag-edge ' + (dir > 0 ? 'right' : 'left') }, h('span', null, dir > 0 ? `Nächste ${span} ›` : `‹ Vorige ${span}`));
+      const r = scroller.getBoundingClientRect();
+      Object.assign(bar.style, { top: r.top + 'px', height: r.height + 'px', left: (dir > 0 ? r.right - 46 : cols[0].getBoundingClientRect().left) + 'px' });
+      document.body.append(bar);
+      edge = { dir, bar, timer: setTimeout(() => flip(dir, e), EDGE_MS) };
+    }
+    function flip(dir, e) {
+      clearEdge();
+      if (!drag) return;
+      const d = drag; drag = null;
+      carry = {
+        o: d.o, ci0: d.ci0, m0: d.m0, dm: d.dm || 0, shift: (d.shift || 0) + dir * days.length,
+        ghost: d.ghost, x: e.clientX, y: e.clientY, dir, touch: !!d.touch, minute: minuteAt(e.clientY),
+      };
+      App.step(dir, { scrollTop: scroller.scrollTop });
+    }
+
     let pending = null; // Touch: wartet auf langen Druck
     const cancelPending = () => { if (pending) { clearTimeout(pending.timer); pending = null; } };
     const startDrag = (e, evEl, ci, m) => {
@@ -557,10 +592,10 @@ const Views = (() => {
       e.preventDefault();
     });
     // Nach dem langen Druck darf der Finger nicht mehr die Seite scrollen
-    body.addEventListener('touchmove', (e) => { if (drag && drag.touch) e.preventDefault(); }, { passive: false });
+    body.addEventListener('touchmove', (e) => { if ((drag && drag.touch) || touchBusy) e.preventDefault(); }, { passive: false });
     body.addEventListener('contextmenu', (e) => { if (pending || (drag && drag.touch)) e.preventDefault(); });
 
-    body.addEventListener('pointermove', (e) => {
+    const onMove = (e) => {
       if (pending) {
         if (Math.abs(e.clientX - pending.x) > TOUCH_SLOP || Math.abs(e.clientY - pending.y) > TOUCH_SLOP) cancelPending();
         return;
@@ -584,17 +619,19 @@ const Views = (() => {
         return;
       } else if (drag.mode === 'move') {
         const dm = snap(m - drag.m0);
-        const dd = colAt(e.clientX) - drag.ci0;
+        const dd = colAt(e.clientX) + (drag.shift || 0) - drag.ci0;
+        const ci = colAt(e.clientX);
         drag.dm = dm; drag.dd = dd;
         const ns = U.addMinutes(U.addDays(drag.o.start, dd), dm);
         const ne = U.addMinutes(U.addDays(drag.o.end, dd), dm);
         if (!drag.ghost) { drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('dragging'); drag.el.classList.add('drag-src'); }
-        const target = cols[drag.ci0 + dd];
+        const target = cols[ci];
         if (target && drag.ghost.parentNode !== target) target.append(drag.ghost);
         const top = (U.minutesOfDay(ns) / 60) * HOUR_PX;
         Object.assign(drag.ghost.style, { top: `${top}px`, left: '1px', width: 'calc(100% - 6px)', zIndex: 50 });
         const t = drag.ghost.querySelector('.ev-time');
         if (t) t.textContent = `${U.fmtTime(ns)} – ${U.fmtTime(ne)}`;
+        checkEdge(e);
       } else if (drag.mode === 'resize') {
         const em = Math.max(snap(m), U.minutesOfDay(drag.o.start) + SNAP);
         drag.newEndMin = em;
@@ -602,7 +639,9 @@ const Views = (() => {
         const t = drag.el.querySelector('.ev-time');
         if (t) t.textContent = `${U.fmtTime(drag.o.start)} – ${U.pad(Math.floor(em / 60) % 24)}:${U.pad(em % 60)}`;
       }
-    });
+    };
+    body.addEventListener('pointermove', onMove);
+    const onTouchMove = (e) => { if (!drag) return; e.preventDefault(); const t = e.touches[0]; if (t) onMove({ clientX: t.clientX, clientY: t.clientY }); };
 
     const finish = (e) => {
       if (pending) {
@@ -611,8 +650,13 @@ const Views = (() => {
         if (p.evEl) App.showPopover(p.evEl._occ, p.evEl);
         return;
       }
+      clearEdge();
       if (!drag) return;
       const d = drag; drag = null; touchBusy = false;
+      if (d.carried) {
+        window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', finish);
+        window.removeEventListener('touchmove', onTouchMove); window.removeEventListener('touchend', finish); window.removeEventListener('touchcancel', finish);
+      }
       if (d.el) d.el.classList.remove('lp-active');
       if (d.mode === 'create') {
         if (d.touch && !d.moved) {
@@ -641,7 +685,7 @@ const Views = (() => {
       if (!d.moved) { App.showPopover(d.o, d.el); return; }
       if (d.o.readonly) return;
       if (d.mode === 'move') {
-        if (!d.dm && !d.dd) { d.ghost && d.ghost.remove(); d.el.classList.remove('drag-src'); return; }
+        if (!d.dm && !d.dd) { d.ghost && d.ghost.remove(); d.el && d.el.classList.remove('drag-src'); if (d.carried) App.render(); return; }
         App.moveOccurrence(d.o, U.addMinutes(U.addDays(d.o.start, d.dd), d.dm), U.addMinutes(U.addDays(d.o.end, d.dd), d.dm));
       } else if (d.mode === 'resize' && d.newEndMin != null) {
         const dayOfEnd = U.startOfDay(new Date(d.o.end - 1));
@@ -650,7 +694,22 @@ const Views = (() => {
       }
     };
     body.addEventListener('pointerup', finish);
-    body.addEventListener('pointercancel', () => { cancelPending(); touchBusy = false; if (drag) { if (drag.el) drag.el.classList.remove('lp-active'); if (drag.ghost && drag.mode === 'create') drag.ghost.remove(); else if (drag.moved) { App.render(); } drag = null; } });
+
+    // Nach dem Umblättern: denselben Termin weiter an der Maus halten
+    if (carry) {
+      const c = carry; carry = null;
+      // gleiche Uhrzeit unter der Maus wie vor dem Umblättern (Kopfzeile kann anders hoch sein)
+      scroller.scrollTop += ((c.minute - minuteAt(c.y)) / 60) * HOUR_PX;
+      drag = { mode: 'move', o: c.o, el: cols.map((col) => col.querySelector(`.tg-event[data-key="${CSS.escape(c.o.key)}"]`)).find(Boolean) || null,
+        x0: c.x, y0: c.y, m0: c.m0, ci0: c.ci0, shift: c.shift, dm: c.dm, moved: true, carried: true, ghost: c.ghost, touch: c.touch };
+      if (drag.el) drag.el.classList.add('drag-src');
+      // Maus ist das alte Raster los: Bewegung und Loslassen am ganzen Fenster abfangen
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', finish);
+      if (c.touch) { touchBusy = true; window.addEventListener('touchmove', onTouchMove, { passive: false }); window.addEventListener('touchend', finish); window.addEventListener('touchcancel', finish); }
+      onMove({ clientX: c.x, clientY: c.y });
+    }
+    body.addEventListener('pointercancel', () => { cancelPending(); clearEdge(); if (!drag) return; touchBusy = false; if (drag.el) drag.el.classList.remove('lp-active'); if (drag.ghost && drag.mode === 'create') drag.ghost.remove(); else if (drag.moved) { App.render(); } drag = null; });
   }
 
   // ---------- Jahresansicht ----------

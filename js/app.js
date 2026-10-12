@@ -524,7 +524,7 @@ const App = (() => {
 
   return {
     init, render, goto, setView, openEditor, showPopover, showCustomPopover, hidePopover,
-    moveOccurrence, applyRecurringEdit, deleteOccurrence, duplicateEvent, toggleTodo,
+    step, moveOccurrence, applyRecurringEdit, deleteOccurrence, duplicateEvent, toggleTodo,
     clearSearch, toast, applyTheme,
   };
 })();
