@@ -233,10 +233,10 @@ const Todos = (() => {
     if (t.due) meta.append(h('span', { class: 'tm-due' + (overdue ? ' overdue' : t.due === tk ? ' today' : '') }, '📅 ' + U.relDay(U.parseDate(t.due)) + (t.time ? ' ' + t.time : '')));
     if (list && !Store.state.settings.todoListFilter) meta.append(h('span', { class: 'tm-list' }, h('span', { class: 'dot', style: { background: list.color } }), list.name));
     if (t.subtasks.length) meta.append(h('span', { class: 'tm-sub' }, `☑ ${subDone}/${t.subtasks.length}`));
-    if (t.notes) meta.append(h('span', { class: 'tm-notes', title: t.notes }, '📝'));
     if (t.priority) meta.append(h('span', { class: 'tm-prio', style: { color: PRIO[t.priority].color } }, '⚑ ' + PRIO[t.priority].name));
 
-    const main = h('div', { class: 'todo-main' }, h('div', { class: 'todo-title' }, t.title || '(Ohne Titel)'), meta.childNodes.length ? meta : null);
+    const main = h('div', { class: 'todo-main' }, h('div', { class: 'todo-title' }, t.title || '(Ohne Titel)'),
+      t.notes && expanded !== t.id ? h('div', { class: 'todo-desc' }, t.notes) : null, meta.childNodes.length ? meta : null);
     main.addEventListener('click', () => { expanded = expanded === t.id ? null : t.id; render(); });
 
     const del = h('button', { class: 'icon-btn small todo-del', title: 'Löschen' }, h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>' }));
@@ -272,7 +272,7 @@ const Todos = (() => {
     const d = h('div', { class: 'todo-detail' });
     const title = h('input', { class: 'td-title', value: t.title, placeholder: 'Titel' });
     title.addEventListener('change', () => Store.updateTodo(t.id, { title: title.value.trim() || t.title }));
-    const notes = h('textarea', { class: 'td-notes', placeholder: 'Notizen …', rows: 2 }, t.notes || '');
+    const notes = h('textarea', { class: 'td-notes', placeholder: 'Beschreibung …', rows: 2 }, t.notes || '');
     notes.addEventListener('change', () => Store.updateTodo(t.id, { notes: notes.value }));
     const due = h('input', { type: 'date', value: t.due || '' });
     due.addEventListener('change', () => Store.updateTodo(t.id, { due: due.value || null }));
@@ -335,12 +335,17 @@ const Todos = (() => {
   function bind() {
     U.$$('#todoTabs button').forEach((b) => b.addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', b.dataset.filter); }));
     U.$('#projTab').addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', Store.state.settings.todoFilter === 'projects' ? 'today' : 'projects'); });
-    const form = U.$('#todoAddForm'), input = U.$('#todoAddInput');
+    const form = U.$('#todoAddForm'), input = U.$('#todoAddInput'), notesIn = U.$('#todoAddNotes');
+    const grow = () => { notesIn.style.height = 'auto'; notesIn.style.height = Math.min(notesIn.scrollHeight, 180) + 'px'; };
+    const showMore = () => form.classList.toggle('has-text', !!(input.value.trim() || notesIn.value.trim()));
+    notesIn.addEventListener('input', () => { grow(); showMore(); });
+    const resetForm = () => { input.value = ''; notesIn.value = ''; grow(); showMore(); };
     let busy = false;
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const txt = input.value.trim();
-      if (!txt || busy) return;
+      const desc = notesIn.value.trim();
+      if (!txt || busy) { if (!txt && desc) input.focus(); return; }
       const S = Store.state;
       if (AI.enabled() && navigator.onLine) {
         busy = true;
@@ -349,9 +354,9 @@ const Todos = (() => {
         input.readOnly = true;
         try {
           const items = await AI.ask(txt);
-          const made = AI.apply(items, S.settings.todoListFilter || S.todoLists[0]?.id);
+          const made = AI.apply(items, S.settings.todoListFilter || S.todoLists[0]?.id, desc);
           if (made.length) {
-            input.value = '';
+            resetForm();
             updateHint('');
             App.toast('✨ ' + AI.summary(made), { undo: true });
             return;
@@ -366,8 +371,8 @@ const Todos = (() => {
       const p = parseQuick(txt);
       if (!p.due && S.settings.todoFilter === 'today') p.due = todayKey();
       if (!p.due && S.settings.todoFilter === 'upcoming') p.due = U.dateKey(U.addDays(new Date(), 1));
-      Store.addTodo({ title: p.title || txt, due: p.due, time: p.time, priority: p.priority, listId: p.listId || S.settings.todoListFilter || S.todoLists[0]?.id });
-      input.value = '';
+      Store.addTodo({ title: p.title || txt, notes: desc, due: p.due, time: p.time, priority: p.priority, listId: p.listId || S.settings.todoListFilter || S.todoLists[0]?.id });
+      resetForm();
       updateHint('');
     });
     const updateHint = (v) => {
@@ -387,6 +392,7 @@ const Todos = (() => {
     input.addEventListener('input', () => {
       const v = input.value.replace(/#([\wäöüÄÖÜß-]+)/g, (m, name) => Store.state.todoLists.some((l) => l.name.toLowerCase().startsWith(name.toLowerCase())) ? m : '');
       updateHint(v);
+      showMore();
     });
   }
 

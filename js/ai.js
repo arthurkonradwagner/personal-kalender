@@ -94,7 +94,7 @@ Text: ${text}`;
   const byName = (arr, name) => name && arr.find((x) => x.name.toLowerCase() === String(name).toLowerCase());
 
   // Ergebnis der KI in Aufgaben/Termine umsetzen. Gibt die angelegten Titel zurück.
-  function apply(items, fallbackListId) {
+  function apply(items, fallbackListId, extraNotes) {
     const S = Store.state;
     const made = [];
     if (!items.length) return made;
@@ -104,7 +104,8 @@ Text: ${text}`;
       if (!title) continue;
       const date = isDate(it.date) ? it.date : null;
       const time = isTime(it.time) ? normTime(it.time) : null;
-      const notes = it.notes ? String(it.notes).slice(0, 1000) : '';
+      let notes = it.notes ? String(it.notes).slice(0, 1000) : '';
+      if (extraNotes && !made.length) notes = notes ? extraNotes + '\n' + notes : extraNotes; // Beschreibung zum ersten Eintrag
       if (it.type === 'event' && date) {
         const cal = byName(S.calendars.filter((c) => c.type !== 'subscription'), it.calendar) || S.calendars.find((c) => c.id === S.defaultCalendar) || S.calendars[0];
         const ev = { title, notes, calId: cal.id };

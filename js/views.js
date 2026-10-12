@@ -266,6 +266,7 @@ const Views = (() => {
         const row = h('div', { class: 'ts-item' + (t.done ? ' done' : ''), style: { '--c': l ? l.color : 'var(--accent)' } },
           h('button', { class: 'ts-check', title: 'Erledigt' }, t.done ? '✓' : ''),
           h('div', { class: 'ts-body' }, h('div', { class: 'ts-title' }, t.title),
+            t.notes ? h('div', { class: 'ts-desc' }, t.notes) : null,
             h('div', { class: 'ts-meta' }, [t.time ? '🕒 ' + t.time : null, l ? l.name : null, t.priority === 1 ? '⚑ Hoch' : null].filter(Boolean).join(' · '))));
         row.querySelector('.ts-check').addEventListener('click', () => { App.toggleTodo(t.id); setTimeout(() => box.replaceChildren(...build()), 420); });
         return row;

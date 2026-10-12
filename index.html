@@ -129,8 +129,14 @@
       <div class="todo-lists" id="todoListChips"></div>
 
       <form class="todo-add" id="todoAddForm" autocomplete="off">
-        <span class="todo-add-plus">+</span>
-        <input id="todoAddInput" placeholder="Aufgabe hinzufügen …" maxlength="300">
+        <div class="todo-add-line">
+          <span class="todo-add-plus">+</span>
+          <input id="todoAddInput" placeholder="Titel der Aufgabe …" maxlength="300">
+        </div>
+        <div class="todo-add-more">
+          <textarea id="todoAddNotes" rows="2" placeholder="Beschreibung (optional) …" maxlength="4000"></textarea>
+          <button type="submit" class="btn btn-primary small">Hinzufügen</button>
+        </div>
       </form>
       <div class="todo-hint" id="todoHint">Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“</div>
 
