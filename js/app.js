@@ -62,8 +62,9 @@ const App = (() => {
     const items = [
       ['Nur diesen anzeigen', () => { S().calendars.forEach((x) => { x.visible = x.id === c.id; }); Store.emit('calendars'); }],
       ['Alle anzeigen', () => { S().calendars.forEach((x) => { x.visible = true; }); Store.emit('calendars'); }],
-      ['Als Standard festlegen', () => { S().defaultCalendar = c.id; Store.emit('calendars'); }],
-      ['Bearbeiten …', () => Dialogs.editCalendar(c)],
+      ...(c.type === 'subscription'
+        ? [['Jetzt aktualisieren', () => Subs.refresh(c, { force: true, toast: true })], ['Abo entfernen …', () => Subs.remove(c)]]
+        : [['Als Standard festlegen', () => { S().defaultCalendar = c.id; Store.emit('calendars'); }], ['Bearbeiten …', () => Dialogs.editCalendar(c)]]),
     ];
     showMenu(anchor, [h('div', { class: 'ctx-title' }, c.name), ...items.map(([l, fn]) => h('button', { class: 'ctx-item', onclick: () => { hideMenu(); fn(); } }, l)), h('div', { class: 'ctx-sep' }), pal]);
   }
@@ -126,7 +127,7 @@ const App = (() => {
     const p = U.$('#popover');
     p.innerHTML = '';
     const actions = h('div', { class: 'pop-actions' });
-    if (o.kind === 'event') {
+    if (o.kind === 'event' && !o.readonly) {
       actions.append(
         h('button', { class: 'icon-btn', title: 'Bearbeiten', onclick: () => { hidePopover(); Dialogs.eventEditor({}, o); } }, h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/>' })),
         h('button', { class: 'icon-btn', title: 'Duplizieren', onclick: () => { hidePopover(); duplicateEvent(o.ev); } }, h('svg', { viewBox: '0 0 24 24', html: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>' })),
@@ -506,6 +507,7 @@ const App = (() => {
     checkReminders();
     setInterval(tick, 30000);
     Sync.init();
+    Subs.init();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service Worker', e));
     }

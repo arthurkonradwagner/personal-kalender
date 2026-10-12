@@ -108,6 +108,8 @@ const ICS = (() => {
         color: /^#[0-9a-f]{6}$/i.test(P['X-PK-COLOR']?.value || '') ? P['X-PK-COLOR'].value : null,
         rrule: null, exdates: c.ex, reminder: null,
       };
+      if (P.UID) ev.uid = P.UID.value;
+      if (P['RECURRENCE-ID']) { const r = parseDt(P['RECURRENCE-ID'].value, P['RECURRENCE-ID'].params); if (r) ev.recurId = U.dateKey(r.d); }
       if (c.trigger) {
         const m = /-P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/.exec(c.trigger);
         if (m) ev.reminder = (+m[1] || 0) * 1440 + (+m[2] || 0) * 60 + (+m[3] || 0);

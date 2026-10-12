@@ -30,3 +30,6 @@ Alles wird im Speicher des Browsers abgelegt, mit dem du die Datei öffnest. Öf
 - `index.html` Startseite
 - `css/style.css` Gestaltung
 - `js/` Programmlogik (Ansichten, Aufgaben, Wiederholungen, Feiertage, Import/Export)
+
+## BOKU-Stundenplan und andere Kalender-Abos
+Unter ⚙ Einstellungen → „Kalender-Abos“ fügst du einen iCal-Link ein (z. B. aus BOKUonline). Die Termine erscheinen als eigener, schreibgeschützter Kalender und werden alle 30 Minuten neu geladen. Weil viele Uni-Server keinen direkten Abruf aus dem Browser erlauben, holt der Kalender den Link notfalls über einen öffentlichen Vermittler (corsproxy.io bzw. allorigins.win).

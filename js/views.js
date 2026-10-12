@@ -54,7 +54,7 @@ const Views = (() => {
           }
         }
         out.push({
-          kind: 'event', id: ev.id, ev, cal, start: o.start, end: o.end, idx: o.idx,
+          kind: 'event', id: ev.id, ev, cal, start: o.start, end: o.end, idx: o.idx, readonly: cal.type === 'subscription',
           allDay: !!ev.allDay, title, color: ev.color || cal.color, recurring: !!(ev.rrule && ev.rrule.freq),
           key: ev.id + '|' + U.dateKey(o.start),
         });

@@ -14,7 +14,7 @@ const AI = (() => {
     const S = Store.state;
     const now = new Date();
     const lists = S.todoLists.map((l) => l.name).join(', ') || '–';
-    const cals = S.calendars.map((c) => c.name + (c.type === 'birthday' ? ' (Geburtstage)' : '')).join(', ');
+    const cals = S.calendars.filter((c) => c.type !== 'subscription').map((c) => c.name + (c.type === 'birthday' ? ' (Geburtstage)' : '')).join(', ');
     return `Du bist der Eingabe-Assistent eines persönlichen Kalenders. Der Nutzer tippt freien Text (oft Umgangssprache, Tippfehler, mehrere Dinge auf einmal).
 Heute ist ${U.WEEKDAYS[now.getDay()]}, ${U.dateKey(now)}, es ist ${U.timeKey(now)} Uhr. Wochen beginnen am Montag.
 Vorhandene Aufgabenlisten: ${lists}
@@ -106,7 +106,7 @@ Text: ${text}`;
       const time = isTime(it.time) ? normTime(it.time) : null;
       const notes = it.notes ? String(it.notes).slice(0, 1000) : '';
       if (it.type === 'event' && date) {
-        const cal = byName(S.calendars, it.calendar) || S.calendars.find((c) => c.id === S.defaultCalendar) || S.calendars[0];
+        const cal = byName(S.calendars.filter((c) => c.type !== 'subscription'), it.calendar) || S.calendars.find((c) => c.id === S.defaultCalendar) || S.calendars[0];
         const ev = { title, notes, calId: cal.id };
         if (it.allDay || !time || cal.type === 'birthday') {
           Object.assign(ev, { allDay: true, start: date, end: date });

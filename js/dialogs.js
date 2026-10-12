@@ -163,7 +163,7 @@ const Dialogs = (() => {
     updateRecurOptions();
 
     // Kalender
-    const calSel = h('select', null, ...S.calendars.map((c) => h('option', { value: c.id, selected: c.id === cal.id }, c.name)));
+    const calSel = h('select', null, ...S.calendars.filter((c) => c.type !== 'subscription' || c.id === cal.id).map((c) => h('option', { value: c.id, selected: c.id === cal.id }, c.name)));
     const calDot = h('span', { class: 'dot big', style: { background: cal.color } });
     const birthRow = h('label', { class: 'ed-row' }, h('span', { class: 'ed-ico', title: 'Geburtsjahr' }, '🎂'));
     const birthYear = h('input', { type: 'number', min: 1900, max: 2100, placeholder: 'Geburtsjahr (optional, für Altersanzeige)', value: base.birthYear || '' });
@@ -375,7 +375,7 @@ const Dialogs = (() => {
       } catch (e) { App.toast('Datei konnte nicht gelesen werden.', { type: 'error' }); }
       fileJson.value = '';
     });
-    const icsCal = h('select', null, ...S.calendars.map((c) => h('option', { value: c.id, selected: c.id === S.defaultCalendar }, c.name)));
+    const icsCal = h('select', null, ...S.calendars.filter((c) => c.type !== 'subscription').map((c) => h('option', { value: c.id, selected: c.id === S.defaultCalendar }, c.name)));
     const fileIcs = h('input', { type: 'file', accept: '.ics,text/calendar', class: 'hidden' });
     fileIcs.addEventListener('change', async () => {
       const f = fileIcs.files[0]; if (!f) return;
@@ -405,6 +405,7 @@ const Dialogs = (() => {
       row('Bundesland', sel('holidayState', Object.entries(Holidays.STATES))),
       row('Aufgaben mit Datum im Kalender zeigen', chk('showTodosInCalendar')),
       row('Termine im Tagesfortschritt mitzählen', chk('progressCountsEvents'), 'vergangene Termine von heute gelten als erledigt'),
+      Subs.settingsSection(),
       h('h4', null, 'Daten'),
       h('p', { class: 'muted' }, 'Alle Daten liegen nur hier im Browser (localStorage). Mach ab und zu eine Sicherung.'),
       h('div', { class: 'set-btns' },
