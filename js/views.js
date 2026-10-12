@@ -327,7 +327,7 @@ const Views = (() => {
     const colsTpl = `var(--gutter) repeat(${nDays}, minmax(0, 1fr))`;
 
     // Aufgaben am Handy: 'all' (alle als Balken), 'compact' (2 + „+N“), 'badge' (Zahl am Tag), 'bar' (Leiste oben)
-    const todoMode = isPhone() ? (Store.state.settings.phoneTodoMode || 'compact') : 'all';
+    const todoMode = Store.state.settings.phoneTodoMode || 'compact';
     const todosOf = (d) => occ.filter((o) => o.kind === 'todo' && U.sameDay(o.start, d));
 
     // Kopf
@@ -399,7 +399,7 @@ const Views = (() => {
     for (const x of extraTodos) {
       let lane = lanes.findIndex((end) => end < x.i);
       if (lane === -1) { lane = lanes.length; lanes.push(x.i); } else lanes[lane] = x.i;
-      const more = h('button', { class: 'chip chip-more ad-item' }, nDays > 1 ? `+${x.n}` : `+${x.n} weitere Aufgaben`);
+      const more = h('button', { class: 'chip chip-more ad-item' }, nDays === 1 ? `+${x.n} weitere Aufgaben` : isPhone() ? `+${x.n}` : `+${x.n} Aufgaben`);
       Object.assign(more.style, { left: `calc(${(x.i / nDays) * 100}% + 2px)`, width: `calc(${100 / nDays}% - 4px)`, top: `${lane * 24 + 2}px` });
       more.addEventListener('click', (e) => { e.stopPropagation(); taskSheet(x.d); });
       adArea.append(more);
