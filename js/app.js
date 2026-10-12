@@ -509,7 +509,15 @@ const App = (() => {
     Sync.init();
     Subs.init();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service Worker', e));
+      // Neue Version gefunden: einmal automatisch neu laden
+      const hadController = !!navigator.serviceWorker.controller;
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !reloaded) { reloaded = true; Store.save(); location.reload(); } });
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+        const check = () => reg.update().catch(() => {});
+        setInterval(check, 10 * 60000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+      }).catch((e) => console.warn('Service Worker', e));
     }
   }
 

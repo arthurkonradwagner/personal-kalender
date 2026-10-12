@@ -1,5 +1,5 @@
 /* Service Worker: App läuft auch offline. Bei Änderungen VERSION erhöhen. */
-const VERSION = 'pk-v15';
+const VERSION = 'pk-v16';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/firebase-config.js', 'js/util.js', 'js/store.js', 'js/recurrence.js', 'js/holidays.js', 'js/ics.js',
@@ -8,7 +8,7 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
@@ -22,8 +22,9 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (url.origin !== location.origin) return;
-  // Netz zuerst (damit Updates sofort ankommen), offline aus dem Cache
-  e.respondWith(fetch(e.request).then((r) => {
+  // Netz zuerst und am Browser-Zwischenspeicher vorbei (damit Updates sofort ankommen), offline aus dem Cache
+  const fresh = e.request.mode === 'navigate' ? new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' }) : new Request(e.request, { cache: 'no-cache' });
+  e.respondWith(fetch(fresh).then((r) => {
     const copy = r.clone();
     caches.open(VERSION).then((c) => c.put(e.request, copy));
     return r;
