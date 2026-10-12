@@ -239,7 +239,8 @@ const Views = (() => {
   }
 
   function clickOcc(o, el) {
-    if (o.kind === 'todo') { App.toggleTodo(o.id); return; }
+    // Aufgabe antippen hakt nicht ab, sondern öffnet die Aufgabenliste des Tages
+    if (o.kind === 'todo') { App.hidePopover(); taskSheet(U.startOfDay(o.start)); return; }
     App.showPopover(o, el);
   }
 

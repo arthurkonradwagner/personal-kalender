@@ -1,5 +1,5 @@
 /* Service Worker: App läuft auch offline. Bei Änderungen VERSION erhöhen. */
-const VERSION = 'pk-v16';
+const VERSION = 'pk-v17';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/firebase-config.js', 'js/util.js', 'js/store.js', 'js/recurrence.js', 'js/holidays.js', 'js/ics.js',
