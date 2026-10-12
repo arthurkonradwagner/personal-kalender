@@ -254,6 +254,35 @@ const Views = (() => {
     App.showCustomPopover(box, anchor);
   }
 
+  // Aufgaben eines Tages als Blatt von unten (Handy)
+  function taskSheet(d) {
+    const build = () => {
+      const list = Store.state.todos.filter((t) => t.due === U.dateKey(d))
+        .sort((a, b) => (a.done - b.done) || ((a.time || '99') < (b.time || '99') ? -1 : (a.time || '99') > (b.time || '99') ? 1 : 0) || (a.priority || 9) - (b.priority || 9));
+      const open = list.filter((t) => !t.done).length;
+      const rows = list.map((t) => {
+        const l = Store.todoList(t.listId);
+        const row = h('div', { class: 'ts-item' + (t.done ? ' done' : ''), style: { '--c': l ? l.color : 'var(--accent)' } },
+          h('button', { class: 'ts-check', title: 'Erledigt' }, t.done ? '✓' : ''),
+          h('div', { class: 'ts-body' }, h('div', { class: 'ts-title' }, t.title),
+            h('div', { class: 'ts-meta' }, [t.time ? '🕒 ' + t.time : null, l ? l.name : null, t.priority === 1 ? '⚑ Hoch' : null].filter(Boolean).join(' · '))));
+        row.querySelector('.ts-check').addEventListener('click', () => { App.toggleTodo(t.id); setTimeout(() => box.replaceChildren(...build()), 420); });
+        return row;
+      });
+      return [
+        h('div', { class: 'ts-handle' }),
+        h('div', { class: 'ts-head' },
+          h('div', null, h('h3', null, U.sameDay(d, new Date()) ? 'Aufgaben heute' : `Aufgaben am ${U.WEEKDAYS[d.getDay()]}`),
+            h('small', null, `${U.fmtDateShort(d)} · ${open} offen von ${list.length}`)),
+          h('button', { class: 'icon-btn', onclick: () => Modal.close() }, '✕')),
+        h('div', { class: 'ts-list' }, ...(rows.length ? rows : [h('p', { class: 'muted' }, 'Keine Aufgaben an diesem Tag.')])),
+      ];
+    };
+    const box = h('div', { class: 'task-sheet' });
+    box.append(...build());
+    Modal.open(box, { width: 520, cls: 'modal-task-sheet' });
+  }
+
   // ---------- Tages- & Wochenansicht ----------
   function layoutColumns(items) {
     // items: [{start,end}] eines Tages -> setzt col / cols
@@ -297,6 +326,10 @@ const Views = (() => {
     const tg = h('div', { class: 'tg' + (nDays === 1 ? ' tg-day' : '') });
     const colsTpl = `var(--gutter) repeat(${nDays}, minmax(0, 1fr))`;
 
+    // Aufgaben am Handy: 'all' (alle als Balken), 'compact' (2 + „+N“), 'badge' (Zahl am Tag), 'bar' (Leiste oben)
+    const todoMode = isPhone() ? (Store.state.settings.phoneTodoMode || 'compact') : 'all';
+    const todosOf = (d) => occ.filter((o) => o.kind === 'todo' && U.sameDay(o.start, d));
+
     // Kopf
     const head = h('div', { class: 'tg-head', style: { gridTemplateColumns: colsTpl } });
     head.append(h('div', { class: 'tg-gutter-head' }, Store.state.settings.showWeekNumbers ? 'KW ' + U.isoWeek(U.addDays(from, Math.min(3, nDays - 1))) : ''));
@@ -305,11 +338,32 @@ const Views = (() => {
         h('div', { class: 'wd' }, U.WEEKDAYS_SHORT[d.getDay()]),
         h('button', { class: 'dn', title: 'Tagesansicht' }, d.getDate()));
       dh.querySelector('.dn').addEventListener('click', () => App.goto(d, 'day'));
+      if (todoMode === 'badge') {
+        const list = todosOf(d);
+        if (list.length) {
+          const open = list.filter((o) => !o.done).length;
+          const b = h('button', { class: 'dh-tasks' + (open ? '' : ' all-done'), title: 'Aufgaben' }, open ? `✓ ${open}` : '✓');
+          b.addEventListener('click', (e) => { e.stopPropagation(); taskSheet(d); });
+          dh.append(b);
+        }
+      }
       head.append(dh);
     }
 
     // Ganztägig-Zeile
-    const allday = occ.filter((o) => o.allDay || (o.end - o.start) >= U.DAY_MS).sort(sortOcc);
+    let allday = occ.filter((o) => o.allDay || (o.end - o.start) >= U.DAY_MS).sort(sortOcc);
+    if (todoMode !== 'all') allday = allday.filter((o) => o.kind !== 'todo');
+    // Kompakt: pro Tag höchstens 2 Aufgaben, der Rest als „+N“
+    const COMPACT_MAX = 2;
+    const extraTodos = [];
+    if (todoMode === 'compact') {
+      days.forEach((d, i) => {
+        const list = todosOf(d).sort((a, b) => (a.done - b.done) || sortOcc(a, b));
+        const shown = list.length > COMPACT_MAX + 1 ? list.slice(0, COMPACT_MAX) : list;
+        allday.push(...shown);
+        if (list.length > shown.length) extraTodos.push({ i, d, n: list.length - shown.length });
+      });
+    }
     const timed = occ.filter((o) => !(o.allDay || (o.end - o.start) >= U.DAY_MS));
     const adRow = h('div', { class: 'tg-allday', style: { gridTemplateColumns: colsTpl } });
     adRow.append(h('div', { class: 'tg-gutter-ad' }, 'ganztägig'));
@@ -342,13 +396,36 @@ const Views = (() => {
       el.addEventListener('click', (e) => { e.stopPropagation(); clickOcc(o, el); });
       adArea.append(el);
     }
+    for (const x of extraTodos) {
+      let lane = lanes.findIndex((end) => end < x.i);
+      if (lane === -1) { lane = lanes.length; lanes.push(x.i); } else lanes[lane] = x.i;
+      const more = h('button', { class: 'chip chip-more ad-item' }, nDays > 1 ? `+${x.n}` : `+${x.n} weitere Aufgaben`);
+      Object.assign(more.style, { left: `calc(${(x.i / nDays) * 100}% + 2px)`, width: `calc(${100 / nDays}% - 4px)`, top: `${lane * 24 + 2}px` });
+      more.addEventListener('click', (e) => { e.stopPropagation(); taskSheet(x.d); });
+      adArea.append(more);
+    }
     adArea.style.height = `${Math.max(1, lanes.length) * 24 + 6}px`;
     adRow.append(adArea);
+
+    // Leiste „Aufgaben heute“
+    let taskBar = null;
+    if (todoMode === 'bar') {
+      const d = days.find((x) => U.sameDay(x, today)) || days[0];
+      const list = todosOf(d);
+      const open = list.filter((o) => !o.done).length;
+      const pct = list.length ? Math.round(((list.length - open) / list.length) * 100) : 100;
+      taskBar = h('button', { class: 'tg-taskbar' },
+        h('span', { class: 'tb-ring', style: { '--p': pct } }),
+        h('span', { class: 'tb-text' }, h('b', null, U.sameDay(d, today) ? 'Aufgaben heute' : `Aufgaben ${U.WEEKDAYS_SHORT[d.getDay()]}, ${d.getDate()}.`),
+          h('small', null, list.length ? (open ? `${open} offen · ${list.length - open} erledigt` : 'alles erledigt 🎉') : 'keine Aufgaben')),
+        h('span', { class: 'tb-arrow' }, '›'));
+      taskBar.addEventListener('click', () => taskSheet(d));
+    }
 
     // Zeitraster
     const scroller = h('div', { class: 'tg-scroll' });
     const startHour = Store.state.settings.dayStartHour ?? 7;
-    tg.append(head, adRow, scroller);
+    tg.append(...(taskBar ? [taskBar] : []), head, adRow, scroller);
     root.append(tg);
     if (!isPhone()) HOUR_PX = 48;
     else if (scroller.clientHeight > 0) HOUR_PX = Math.max(24, Math.min(48, (scroller.clientHeight - 8) / (24 - startHour)));
@@ -709,5 +786,5 @@ const Views = (() => {
     else renderAgenda(root, date);
   }
 
-  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, hourPx: () => HOUR_PX, isTouchBusy: () => touchBusy };
+  return { render, renderAgenda, renderMini, resetMini, range, title, occurrences, hourPx: () => HOUR_PX, isTouchBusy: () => touchBusy, taskSheet };
 })();
