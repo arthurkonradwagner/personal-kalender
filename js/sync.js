@@ -116,7 +116,7 @@ const Sync = (() => {
     const btn = h('button', { type: 'submit', class: 'btn btn-primary' }, 'Anmelden');
     const form = h('form', { class: 'login-card' },
       h('div', { class: 'brand-logo big' }, '✓'),
-      h('h2', null, 'Personal Kalender'),
+      h('h2', null, 'Persönlicher Kalender'),
       h('p', { class: 'muted' }, 'Melde dich an, damit PC und Handy synchron bleiben.'),
       email, pw, btn, msg,
       h('button', { type: 'button', class: 'btn btn-ghost small', onclick: async () => {

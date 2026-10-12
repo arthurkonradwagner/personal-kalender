@@ -1,4 +1,4 @@
-# Personal Kalender
+# Persönlicher Kalender
 
 Doppelklick auf **index.html** öffnet den Kalender im Browser (Chrome, Edge oder Firefox). Es braucht kein Internet und keinen Server.
 

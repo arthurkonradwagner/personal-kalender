@@ -49,7 +49,7 @@ const Todos = (() => {
     U.$('#progressMsg').textContent = msg;
     if (lastPct != null && lastPct < 100 && p.pct === 100) celebrate();
     lastPct = p.pct;
-    document.title = (p.pct != null ? `${p.pct}% · ` : '') + 'Personal Kalender';
+    document.title = (p.pct != null ? `${p.pct}% · ` : '') + 'Persönlicher Kalender';
     const np = U.$('#navPct'); if (np) np.textContent = p.pct != null ? p.pct + '%' : '';
   }
 

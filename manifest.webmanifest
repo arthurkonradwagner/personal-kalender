@@ -1,6 +1,6 @@
 {
-  "name": "Personal Kalender",
-  "short_name": "Kalender",
+  "name": "Persönlicher Kalender",
+  "short_name": "Persönlicher Kalender",
   "description": "Persönlicher Kalender mit Aufgaben und Tagesfortschritt",
   "lang": "de",
   "start_url": "./",

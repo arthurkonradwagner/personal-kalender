@@ -15,7 +15,7 @@ const ICS = (() => {
   const dOnly = (d) => `${d.getFullYear()}${U.pad(d.getMonth() + 1)}${U.pad(d.getDate())}`;
 
   function exportEvents(events, calendars) {
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Personal Kalender//DE', 'CALSCALE:GREGORIAN'];
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Persönlicher Kalender//DE', 'CALSCALE:GREGORIAN'];
     const stamp = dt(new Date());
     for (const ev of events) {
       const cal = calendars.find((c) => c.id === ev.calId);
