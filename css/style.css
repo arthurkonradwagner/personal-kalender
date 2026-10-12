@@ -295,6 +295,15 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .progress-sub { color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
 .progress-msg { font-size: 12.5px; margin-top: 6px; color: var(--accent); font-weight: 600; }
 .confetti { position: absolute; top: 50%; width: 7px; height: 11px; border-radius: 2px; animation: confetti 1.2s ease-out forwards; pointer-events: none; }
+.money-rain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; overflow: hidden; }
+.money-rain .bill { position: absolute; top: -90px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); animation: bill-fall var(--d) cubic-bezier(.35,.1,.6,1) var(--delay) forwards; transform: rotate(var(--r0)); opacity: 0; }
+@keyframes bill-fall {
+  0% { opacity: 1; transform: translate(0, 0) rotate(var(--r0)) rotateY(0deg); }
+  25% { transform: translate(calc(var(--x) * .4), 30vh) rotate(calc(var(--r0) + var(--r1) * .3)) rotateY(calc(var(--s) * 180deg)); }
+  50% { transform: translate(calc(var(--x) * -.2), 60vh) rotate(calc(var(--r0) + var(--r1) * .6)) rotateY(calc(var(--s) * 360deg)); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), calc(100vh + 120px)) rotate(calc(var(--r0) + var(--r1))) rotateY(calc(var(--s) * 600deg)); }
+}
 @keyframes confetti { to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
 
 .todo-head { padding: 8px 14px 4px; }

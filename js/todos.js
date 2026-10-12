@@ -47,7 +47,7 @@ const Todos = (() => {
     else if (p.pct > 0) msg = 'Guter Anfang, weiter so.';
     else msg = 'Los geht’s!';
     U.$('#progressMsg').textContent = msg;
-    if (lastPct != null && lastPct < 100 && p.pct === 100) celebrate();
+    if (lastPct != null && lastPct < 100 && p.pct === 100) { celebrate(); if (Sound.recent()) moneyRain(); }
     lastPct = p.pct;
     document.title = (p.pct != null ? `${p.pct}% · ` : '') + 'Persönlicher Kalender';
     const np = U.$('#navPct'); if (np) np.textContent = p.pct != null ? p.pct + '%' : '';
@@ -61,6 +61,35 @@ const Todos = (() => {
       card.append(c);
       setTimeout(() => c.remove(), 1300);
     }
+  }
+
+  // Geldscheine fliegen über den ganzen Bildschirm
+  const BILL = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fbf6a"/><stop offset="1" stop-color="#2f7d3a"/></linearGradient></defs>
+<rect x="1" y="1" width="118" height="62" rx="5" fill="url(#g)" stroke="#1e5a28" stroke-width="2"/>
+<rect x="7" y="7" width="106" height="50" rx="3" fill="none" stroke="#c9f0c9" stroke-opacity=".6" stroke-width="1.5"/>
+<circle cx="60" cy="32" r="16" fill="#c9f0c9" fill-opacity=".85"/>
+<text x="60" y="39" font-family="Arial,sans-serif" font-size="20" font-weight="700" text-anchor="middle" fill="#1e5a28">€</text>
+<text x="18" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#eaffea">100</text>
+<text x="102" y="52" font-family="Arial,sans-serif" font-size="11" font-weight="700" text-anchor="end" fill="#eaffea">100</text></svg>`);
+  function moneyRain() {
+    U.$('.money-rain')?.remove();
+    const few = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const n = few ? 10 : window.innerWidth < 700 ? 34 : 60;
+    const box = h('div', { class: 'money-rain', 'aria-hidden': 'true' });
+    for (let i = 0; i < n; i++) {
+      const w = 54 + Math.random() * 46;
+      box.append(h('img', { src: BILL, class: 'bill', alt: '', style: {
+        width: w + 'px', left: `${Math.random() * 100}%`,
+        '--d': `${2.4 + Math.random() * 1.8}s`, '--delay': `${Math.random() * 1.4}s`,
+        '--x': `${(Math.random() - 0.5) * 260}px`, '--r0': `${Math.random() * 360}deg`, '--r1': `${(Math.random() - 0.5) * 900}deg`,
+        '--s': `${1.4 + Math.random() * 1.6}`,
+      } }));
+    }
+    box.addEventListener('click', () => box.remove());
+    document.body.append(box);
+    Sound.jackpot();
+    setTimeout(() => box.remove(), 5200);
   }
 
   // ---------- Schnelleingabe ----------

@@ -31,7 +31,9 @@ const Sound = (() => {
     });
   }
 
+  let lastCash = 0;
   function cash() {
+    lastCash = Date.now();
     if (Store.state.settings.soundDone === false) return;
     try {
       const c = audio(), t = c.currentTime + 0.02;
@@ -44,5 +46,24 @@ const Sound = (() => {
     } catch (e) { /* ohne Ton weiter */ }
   }
 
-  return { cash };
+  // Jackpot bei 100 %: Kasse, aufsteigende Glocken und ein Münzregen
+  function jackpot() {
+    if (Store.state.settings.soundDone === false) return;
+    try {
+      const c = audio(), t = c.currentTime + 0.25;
+      const out = c.createGain(); out.gain.value = 0.85; out.connect(c.destination);
+      noise(c, out, t, 0.08, 2200, 1, 0.5);
+      [1568, 1976, 2349, 3136].forEach((f, i) => bell(c, out, t + 0.1 + i * 0.11, f, 0.16));
+      bell(c, out, t + 0.6, 2637, 0.2);
+      for (let i = 0; i < 40; i++) {
+        const at = t + 0.5 + Math.random() * 1.8 * (i / 40) + i * 0.02;
+        noise(c, out, at, 0.03, 5000 + Math.random() * 4000, 9, 0.28 * (1 - i / 50));
+      }
+    } catch (e) { /* ohne Ton weiter */ }
+  }
+
+  // true, wenn der Nutzer gerade selbst etwas abgehakt hat (nicht durch Sync oder Zeitablauf)
+  const recent = () => Date.now() - lastCash < 4000;
+
+  return { cash, jackpot, recent };
 })();
