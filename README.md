@@ -31,5 +31,8 @@ Alles wird im Speicher des Browsers abgelegt, mit dem du die Datei öffnest. Öf
 - `css/style.css` Gestaltung
 - `js/` Programmlogik (Ansichten, Aufgaben, Wiederholungen, Feiertage, Import/Export)
 
+## Projekte
+Oben in der Aufgabenleiste öffnet der silberne Reiter „◆ Projekte“ die Liste großer Vorhaben ohne festen Tag. Jedes Projekt kann einem Monat oder Jahr zugeordnet werden (oder „Irgendwann“), hat Schritte mit Fortschrittsbalken, Notizen und eine Farbe. Projekte erscheinen nicht im Kalender und werden wie alles andere zwischen den Geräten abgeglichen.
+
 ## BOKU-Stundenplan und andere Kalender-Abos
 Unter ⚙ Einstellungen → „Kalender-Abos“ fügst du einen iCal-Link ein (z. B. aus BOKUonline). Die Termine erscheinen als eigener, schreibgeschützter Kalender und werden alle 30 Minuten neu geladen. Weil viele Uni-Server keinen direkten Abruf aus dem Browser erlauben, holt der Kalender den Link notfalls über einen öffentlichen Vermittler (corsproxy.io bzw. allorigins.win).
