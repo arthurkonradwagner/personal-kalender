@@ -42,7 +42,7 @@ const Store = (() => {
       settings: {
         view: 'week', theme: 'dark', weekStart: 1, showWeekNumbers: true,
         holidays: true, holidayState: 'ALL', showTodosInCalendar: true,
-        progressCountsEvents: true, defaultDuration: 60, dayStartHour: 7, aiProvider: '', aiKey: '', phoneTodoMode: 'compact',
+        progressCountsEvents: true, defaultDuration: 60, dayStartHour: 7, aiProvider: '', aiKey: '', phoneTodoMode: 'compact', soundDone: true,
         todoFilter: 'today', todoListFilter: null, sidebarOpen: true, todoOpen: true,
       },
     };

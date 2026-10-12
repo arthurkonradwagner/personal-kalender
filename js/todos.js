@@ -294,6 +294,7 @@ const Todos = (() => {
 
   function toggle(id, el) {
     const t = Store.todo(id);
+    if (!t.done) Sound.cash();
     if (!t.done && el) {
       el.classList.add('completing');
       setTimeout(() => { Store.toggleTodo(id); }, 380);

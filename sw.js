@@ -1,8 +1,8 @@
 /* Service Worker: App läuft auch offline. Bei Änderungen VERSION erhöhen. */
-const VERSION = 'pk-v18';
+const VERSION = 'pk-v19';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/firebase-config.js', 'js/util.js', 'js/store.js', 'js/recurrence.js', 'js/holidays.js', 'js/ics.js',
+  'js/firebase-config.js', 'js/util.js', 'js/sound.js', 'js/store.js', 'js/recurrence.js', 'js/holidays.js', 'js/ics.js',
   'js/views.js', 'js/ai.js', 'js/projects.js', 'js/todos.js', 'js/dialogs.js', 'js/subscriptions.js', 'js/sync.js', 'js/app.js',
   'icons/logo.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];

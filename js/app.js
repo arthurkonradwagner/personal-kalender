@@ -261,6 +261,7 @@ const App = (() => {
   // ---------- Aufgaben aus dem Kalender ----------
   function toggleTodo(id) {
     const done = Store.toggleTodo(id);
+    if (done) Sound.cash();
     toast(done ? 'Aufgabe erledigt ✓' : 'Aufgabe wieder offen', { undo: false });
   }
 
