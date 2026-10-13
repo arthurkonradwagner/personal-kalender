@@ -65,5 +65,9 @@ const Sound = (() => {
   // true, wenn der Nutzer gerade selbst etwas abgehakt hat (nicht durch Sync oder Zeitablauf)
   const recent = () => Date.now() - lastCash < 4000;
 
-  return { cash, jackpot, recent };
+  // Browser erlauben Ton erst nach einer Berührung: beim ersten Tippen freischalten (wichtig für den Wecker)
+  const unlock = () => { try { audio(); } catch (e) { /* egal */ } };
+  ['pointerdown', 'keydown'].forEach((t) => window.addEventListener(t, unlock, { capture: true, passive: true }));
+
+  return { cash, jackpot, recent, audio, noise, bell };
 })();

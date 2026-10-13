@@ -39,6 +39,7 @@ const Store = (() => {
           subtasks: [{ id: U.uid(), title: 'Familie', done: false }, { id: U.uid(), title: 'Freunde', done: false }] },
       ],
       projects: [],
+      alarms: [],
       settings: {
         view: 'week', theme: 'dark', weekStart: 1, showWeekNumbers: true,
         holidays: true, holidayState: 'ALL', showTodosInCalendar: true,
@@ -85,7 +86,7 @@ const Store = (() => {
   // ---------- Sync-Grundlage: jeder Eintrag merkt sich, wann er zuletzt geändert wurde ----------
   // _u = Änderungszeit eines Eintrags, _del = gelöschte Einträge mit Zeitpunkt, _setAt = Änderungszeit der Einstellungen.
   // Beim Abgleich gewinnt pro Eintrag die neuere Version. So kann ein alter Stand nichts Neueres mehr löschen.
-  const COLS = ['calendars', 'events', 'todoLists', 'todos', 'projects'];
+  const COLS = ['calendars', 'events', 'todoLists', 'todos', 'projects', 'alarms'];
   // Einstellungen, die pro Gerät bleiben und nicht synchronisiert werden
   const LOCAL_SETTINGS = ['view', 'sidebarOpen', 'todoOpen', 'todoFilter', 'todoListFilter', 'dayStartHour'];
   const TOMB_DAYS = 120;
@@ -117,7 +118,7 @@ const Store = (() => {
     const s = state;
     return JSON.parse(JSON.stringify({
       version: s.version, calendars: s.calendars, defaultCalendar: s.defaultCalendar, events: s.events,
-      todoLists: s.todoLists, todos: s.todos, projects: s.projects || [], settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
+      todoLists: s.todoLists, todos: s.todos, projects: s.projects || [], alarms: s.alarms || [], settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
     }));
   }
   // Zwei Stände zusammenführen (a = lokal, b = Server). Nichts geht verloren, pro Eintrag gewinnt der neuere.

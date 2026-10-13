@@ -489,6 +489,8 @@ const App = (() => {
       render();
     });
     Todos.bind();
+    const np = U.$('#navProjects');
+    if (np) np.addEventListener('click', () => { Store.setSetting('todoFilter', 'projects'); if (!S().settings.todoOpen) { Store.setSetting('todoOpen', true); } applyPanels(); });
   }
 
   function tick() {
@@ -509,6 +511,7 @@ const App = (() => {
     setInterval(tick, 30000);
     Sync.init();
     Subs.init();
+    Alarm.init();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       // Neue Version gefunden: einmal automatisch neu laden
       const hadController = !!navigator.serviceWorker.controller;
