@@ -441,7 +441,9 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .editor textarea { resize: vertical; min-height: 60px; }
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .check input { width: 17px; height: 17px; accent-color: var(--accent); }
-.ed-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.ed-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* Speichern bleibt immer sichtbar am unteren Rand des Fensters */
+.editor > .ed-actions { position: sticky; bottom: -20px; z-index: 5; margin: 10px -24px -20px; padding: 12px 24px 16px; background: var(--surface); border-top: 1px solid var(--border); }
 .simple-form { display: flex; flex-direction: column; gap: 12px; }
 .simple-form label:not(.check) { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text-2); }
 .simple-form .lbl { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: -4px; }
@@ -577,6 +579,10 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
   .modal-backdrop { padding: 0; align-items: end; }
   .modal { border-radius: 20px 20px 0 0; max-height: 94dvh; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
   .ed-dt-line input[type=date] { flex: 1; min-width: 130px; }
+  .editor > .ed-actions { bottom: calc(-18px - env(safe-area-inset-bottom)); margin: 10px -16px calc(-18px - env(safe-area-inset-bottom)); padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .ed-actions .btn-primary[type=submit] { order: -1; flex: 1 0 100%; justify-content: center; padding: 12px; font-size: 15px; }
+  .ed-actions .spacer { display: none; }
+  .ed-actions .btn:not(.btn-primary) { flex: 1; justify-content: center; }
   .editor input, .editor select, .editor textarea, .todo-add input, .todo-add textarea, .todo-detail input, .todo-detail select, .todo-detail textarea { font-size: 16px; }
   .popover { left: 8px !important; right: 8px; width: auto; top: auto !important; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom)); }
   .toasts { left: 12px; right: 12px; bottom: calc(var(--nav-h) + 14px + env(safe-area-inset-bottom)); }

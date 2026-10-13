@@ -610,11 +610,22 @@ const Views = (() => {
 
       if (drag.mode === 'create') {
         const a = drag.m0, b = snap(m);
-        const s = Math.min(a, b), en = Math.max(a + SNAP, b);
+        // nur seitlich gezogen: Standarddauer statt 15 Minuten
+        const vert = Math.abs(e.clientY - drag.y0) > HOUR_PX / 3;
+        const s = vert ? Math.min(a, b) : a, en = vert ? Math.max(a + SNAP, b) : Math.min(1440, a + (Store.state.settings.defaultDuration || 60));
+        // seitlich ziehen: gleiche Uhrzeit an mehreren Tagen nebeneinander
+        const ci = colAt(e.clientX), lo = Math.min(drag.ci0, ci), hi = Math.max(drag.ci0, ci);
         if (!drag.ghost) { drag.ghost = h('div', { class: 'tg-ghost' }); cols[drag.ci0].append(drag.ghost); }
-        Object.assign(drag.ghost.style, { top: `${(s / 60) * HOUR_PX}px`, height: `${((en - s) / 60) * HOUR_PX}px` });
-        drag.ghost.textContent = `${U.pad(Math.floor(s / 60))}:${U.pad(s % 60)} – ${U.pad(Math.floor(en / 60) % 24)}:${U.pad(en % 60)}`;
-        drag.s = s; drag.e = en;
+        drag.extra = drag.extra || {};
+        for (const k of Object.keys(drag.extra)) if (k < lo || k > hi) { drag.extra[k].remove(); delete drag.extra[k]; }
+        const label = `${U.pad(Math.floor(s / 60))}:${U.pad(s % 60)} – ${U.pad(Math.floor(en / 60) % 24)}:${U.pad(en % 60)}`;
+        for (let i = lo; i <= hi; i++) {
+          let g = i === drag.ci0 ? drag.ghost : drag.extra[i];
+          if (!g) { g = drag.extra[i] = h('div', { class: 'tg-ghost' }); cols[i].append(g); }
+          Object.assign(g.style, { top: `${(s / 60) * HOUR_PX}px`, height: `${((en - s) / 60) * HOUR_PX}px` });
+          g.textContent = i === lo && hi > lo ? `${label} · ${hi - lo + 1} Tage` : label;
+        }
+        drag.s = s; drag.e = en; drag.lo = lo; drag.hi = hi;
       } else if (drag.o.readonly) {
         return;
       } else if (drag.mode === 'move') {
@@ -666,14 +677,18 @@ const Views = (() => {
           App.openEditor({ allDay: false, start: U.dtKey(U.addMinutes(day, s)), end: U.dtKey(U.addMinutes(day, en)) }, () => d.ghost && d.ghost.remove());
           return;
         }
-        const day = days[d.ci0];
+        const multi = d.moved && d.hi > d.lo;
+        const day = days[multi ? d.lo : d.ci0];
         let s, en;
         if (!d.moved) {
           s = Math.floor(d.m0 / 30) * 30;
           en = s + (Store.state.settings.defaultDuration || 60);
         } else { s = d.s; en = d.e; }
         const sd = U.addMinutes(day, s), ed = U.addMinutes(day, en);
-        App.openEditor({ allDay: false, start: U.dtKey(sd), end: U.dtKey(ed) }, () => d.ghost && d.ghost.remove());
+        // mehrere Tage: ein Termin, der sich täglich bis zum letzten gezogenen Tag wiederholt
+        const rrule = multi ? { freq: 'daily', interval: 1, until: U.dateKey(days[d.hi]) } : null;
+        const clean = () => { d.ghost && d.ghost.remove(); Object.values(d.extra || {}).forEach((g) => g.remove()); };
+        App.openEditor({ allDay: false, start: U.dtKey(sd), end: U.dtKey(ed), rrule }, clean);
         if (!d.moved) {
           // kurze Vorschau, damit man sieht wo der Termin entsteht
           d.ghost = h('div', { class: 'tg-ghost' }, `${U.fmtTime(sd)} – ${U.fmtTime(ed)}`);
@@ -709,7 +724,7 @@ const Views = (() => {
       if (c.touch) { touchBusy = true; window.addEventListener('touchmove', onTouchMove, { passive: false }); window.addEventListener('touchend', finish); window.addEventListener('touchcancel', finish); }
       onMove({ clientX: c.x, clientY: c.y });
     }
-    body.addEventListener('pointercancel', () => { cancelPending(); clearEdge(); if (!drag) return; touchBusy = false; if (drag.el) drag.el.classList.remove('lp-active'); if (drag.ghost && drag.mode === 'create') drag.ghost.remove(); else if (drag.moved) { App.render(); } drag = null; });
+    body.addEventListener('pointercancel', () => { cancelPending(); clearEdge(); if (!drag) return; touchBusy = false; if (drag.el) drag.el.classList.remove('lp-active'); if (drag.mode === 'create') { drag.ghost && drag.ghost.remove(); Object.values(drag.extra || {}).forEach((g) => g.remove()); } else if (drag.moved) { App.render(); } drag = null; });
   }
 
   // ---------- Jahresansicht ----------
