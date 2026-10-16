@@ -511,6 +511,18 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
   body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w) - 20px); }
   .view-switch button { padding: 7px 10px; }
 }
+/* Drei matte Teile, Seitenteile nach innen geneigt (nur breite Bildschirme) */
+@media (min-width: 1081px) {
+  .layout { perspective: 2200px; gap: 14px; padding: 2px 20px 14px; }
+  .sidebar, .todo-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 26px 50px -28px rgba(0, 0, 0, .9); }
+  .sidebar { transform: rotateY(9deg); transform-origin: right center; }
+  .todo-panel { transform: rotateY(-9deg); transform-origin: left center; overflow: hidden; }
+  .main { padding: 0; }
+  .view-container { margin-top: 0; border-radius: 22px; box-shadow: 0 26px 50px -28px rgba(0, 0, 0, .9); }
+  body.no-sidebar .sidebar { margin-left: calc(-1 * var(--sidebar-w) - 14px); }
+  body.no-sidebar .main { padding-left: 0; }
+  body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w) - 14px); }
+}
 @media (max-width: 820px) {
   :root { --gutter: 40px; --nav-h: 64px; --todo-w: 100vw; --sidebar-w: 290px; }
   body { overscroll-behavior: none; }
