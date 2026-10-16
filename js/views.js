@@ -271,6 +271,7 @@ const Views = (() => {
             t.notes ? h('div', { class: 'ts-desc' }, t.notes) : null,
             h('div', { class: 'ts-meta' }, [t.time ? '🕒 ' + t.time : null, l ? l.name : null, t.priority === 1 ? '⚑ Hoch' : null].filter(Boolean).join(' · '))));
         row.querySelector('.ts-check').addEventListener('click', () => { App.toggleTodo(t.id); setTimeout(() => box.replaceChildren(...build()), 420); });
+        todoDragSource(row, t);
         return row;
       });
       return [
@@ -280,11 +281,140 @@ const Views = (() => {
             h('small', null, `${U.fmtDateShort(d)} · ${open} offen von ${list.length}`)),
           h('button', { class: 'icon-btn', onclick: () => Modal.close() }, '✕')),
         h('div', { class: 'ts-list' }, ...(rows.length ? rows : [h('p', { class: 'muted' }, 'Keine Aufgaben an diesem Tag.')])),
+        rows.length ? h('p', { class: 'ts-hint' }, 'Tipp: Aufgabe länger halten und auf einen anderen Tag ziehen.') : null,
       ];
     };
     const box = h('div', { class: 'task-sheet' });
     box.append(...build());
     Modal.open(box, { width: 520, cls: 'modal-task-sheet' });
+  }
+
+  // ---------- Aufgabe aus dem Aufgabenblatt auf einen anderen Tag ziehen ----------
+  // Länger auf der Aufgabe halten (Maus oder Finger); mit der Maus geht auch einfach losziehen.
+  // Das Blatt blendet sich aus, die Aufgabe hängt am Zeiger und landet auf dem Tag, über dem man loslässt.
+  function todoDragSource(row, t) {
+    row.addEventListener('contextmenu', (e) => e.preventDefault());
+    row.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('.ts-check')) return;
+      const x0 = e.clientX, y0 = e.clientY, touch = e.pointerType !== 'mouse';
+      if (!touch) e.preventDefault(); // kein Text markieren
+      let timer = null, drag = null;
+      const off = () => {
+        clearTimeout(timer); timer = null;
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', cancel);
+        window.removeEventListener('touchmove', tmove);
+        window.removeEventListener('touchend', up);
+        window.removeEventListener('touchcancel', up);
+      };
+      const begin = (x, y) => { clearTimeout(timer); timer = null; vibrate(); drag = startTodoDrag(t, row, x, y, touch); };
+      const move = (ev) => {
+        if (drag) { drag.move(ev.clientX, ev.clientY); return; }
+        if (Math.abs(ev.clientX - x0) <= TOUCH_SLOP && Math.abs(ev.clientY - y0) <= TOUCH_SLOP) return;
+        if (touch) off(); // Finger bewegt sich vor dem langen Druck: Liste scrollen
+        else begin(ev.clientX, ev.clientY);
+      };
+      // Nach dem langen Druck darf der Finger nicht mehr scrollen
+      const tmove = (ev) => {
+        if (!drag) return;
+        if (ev.cancelable) ev.preventDefault();
+        const p = ev.touches[0];
+        if (p) drag.move(p.clientX, p.clientY);
+      };
+      const up = () => { off(); if (drag) { const d = drag; drag = null; d.drop(); } };
+      // Touch: das Blatt wird nur ausgeblendet, Touch-Ereignisse kommen weiter an
+      const cancel = () => { if (drag && touch) return; off(); if (drag) { drag.abort(); drag = null; } };
+      timer = setTimeout(() => begin(x0, y0), LONG_MS);
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', cancel);
+      window.addEventListener('touchmove', tmove, { passive: false });
+      window.addEventListener('touchend', up);
+      window.addEventListener('touchcancel', up);
+    });
+  }
+
+  // Welcher Tag liegt unter dem Zeiger? Monats-, Wochen-, Tages-, Jahres- und Mini-Kalender
+  function dayAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    const c = el.closest('[data-date]');
+    if (c) return c.dataset.date;
+    // Woche/Tag: Kopf, Ganztägig-Zeile und Termine gehören zur Spalte darunter
+    const tg = el.closest('.tg');
+    if (tg) {
+      for (const col of tg.querySelectorAll('.tg-col')) {
+        const r = col.getBoundingClientRect();
+        if (x >= r.left && x < r.right) return col.dataset.date;
+      }
+    }
+    return null;
+  }
+
+  function startTodoDrag(t, row, x, y, touch) {
+    const back = row.closest('.modal-backdrop');
+    if (back) back.classList.add('todo-dragging'); // Blatt ausblenden, Kalender wird sichtbar
+    App.hidePopover();
+    const list = Store.todoList(t.listId);
+    const ghost = h('div', { class: 'todo-drag-ghost', style: { '--c': list ? list.color : 'var(--accent)' } },
+      h('span', { class: 'todo-box' }), h('span', { class: 'tdg-title' }, t.title), h('span', { class: 'tdg-day' }));
+    document.body.append(ghost);
+    let target = null, edge = null, last = { x, y };
+
+    const mark = (k) => {
+      if (k === target) return;
+      document.querySelectorAll('.todo-drop').forEach((el) => el.classList.remove('todo-drop'));
+      target = k;
+      if (k) document.querySelectorAll(`[data-date="${k}"]`).forEach((el) => el.classList.add('todo-drop'));
+      const d = k && U.parseDate(k);
+      ghost.querySelector('.tdg-day').textContent = d ? `→ ${U.WEEKDAYS_SHORT[d.getDay()]}, ${d.getDate()}. ${U.MONTHS_SHORT[d.getMonth()]}` : '';
+    };
+    const clearEdge = () => { if (edge) { clearTimeout(edge.timer); edge.bar.remove(); edge = null; } };
+    // Am linken/rechten Rand verweilen: Kalender umblättern, Aufgabe bleibt am Zeiger
+    const checkEdge = () => {
+      const vc = document.querySelector('.view-container');
+      if (!vc) return;
+      const r = vc.getBoundingClientRect();
+      const zone = touch ? 22 : 12;
+      const dir = last.y < r.top || last.y > r.bottom ? 0 : last.x >= r.right - zone ? 1 : last.x <= r.left + zone ? -1 : 0;
+      if (!dir) { clearEdge(); return; }
+      if (edge && edge.dir === dir) return;
+      clearEdge();
+      const bar = h('div', { class: 'drag-edge ' + (dir > 0 ? 'right' : 'left') }, h('span', null, dir > 0 ? 'Weiter >' : '< Zurück'));
+      Object.assign(bar.style, { top: r.top + 'px', height: r.height + 'px', left: (dir > 0 ? r.right - 46 : r.left) + 'px' });
+      document.body.append(bar);
+      edge = { dir, bar, timer: setTimeout(() => {
+        clearEdge();
+        const sc = vc.querySelector('.tg-scroll');
+        App.step(dir, sc ? { scrollTop: sc.scrollTop } : undefined);
+        target = null; update();
+      }, EDGE_MS) };
+    };
+    const update = () => {
+      Object.assign(ghost.style, { left: last.x + 'px', top: last.y + 'px' });
+      mark(dayAt(last.x, last.y));
+      checkEdge();
+    };
+    const cleanup = () => {
+      clearEdge(); mark(null); ghost.remove();
+    };
+    if (touch) ghost.classList.add('touch');
+    update();
+    return {
+      move(nx, ny) { last = { x: nx, y: ny }; update(); },
+      drop() {
+        const k = target;
+        cleanup();
+        if (!k || k === t.due) { if (back) back.classList.remove('todo-dragging'); return; }
+        Store.snapshot();
+        Store.updateTodo(t.id, { due: k });
+        Modal.close();
+        const d = U.parseDate(k);
+        App.toast(`Aufgabe auf ${U.WEEKDAYS_SHORT[d.getDay()]}, ${d.getDate()}. ${U.MONTHS_SHORT[d.getMonth()]} verschoben`, { undo: true });
+      },
+      abort() { cleanup(); if (back) back.classList.remove('todo-dragging'); },
+    };
   }
 
   // ---------- Tages- & Wochenansicht ----------
@@ -440,7 +570,7 @@ const Views = (() => {
 
     const cols = [];
     days.forEach((d, i) => {
-      const col = h('div', { class: 'tg-col' + (U.sameDay(d, today) ? ' today' : '') + (d.getDay() === 0 || d.getDay() === 6 ? ' weekend' : ''), dataset: { idx: i } });
+      const col = h('div', { class: 'tg-col' + (U.sameDay(d, today) ? ' today' : '') + (d.getDay() === 0 || d.getDay() === 6 ? ' weekend' : ''), dataset: { idx: i, date: U.dateKey(d) } });
       for (let hr = 0; hr < 24; hr++) col.append(h('div', { class: 'tg-line', style: { top: `${hr * HOUR_PX}px` } }), h('div', { class: 'tg-line half', style: { top: `${hr * HOUR_PX + HOUR_PX / 2}px` } }));
       const dayStart = d, dayEnd = U.addDays(d, 1);
       const items = timed.filter((o) => o.start < dayEnd && o.end > dayStart).map((o) => ({
@@ -762,6 +892,7 @@ const Views = (() => {
           class: 'ym-day' + (inMonth ? '' : ' other') + (U.sameDay(d, today) ? ' today' : '') + (inMonth && c ? ' has' : '') + (inMonth && colorOf.get(k) === 'holiday' ? ' hol' : ''),
           title: inMonth && c ? `${c} Einträge` : '',
           style: inMonth && c && colorOf.get(k) !== 'holiday' ? { '--c': colorOf.get(k) } : null,
+          dataset: inMonth ? { date: k } : null,
         }, d.getDate());
         if (inMonth) cell.addEventListener('click', () => App.goto(d, 'day'));
         else cell.tabIndex = -1;
@@ -843,6 +974,7 @@ const Views = (() => {
       const inSel = (view === 'week' || view === 'day') && d >= r.from && d < r.to;
       const b = h('button', {
         class: 'mini-day' + (d.getMonth() !== miniDate.getMonth() ? ' other' : '') + (U.sameDay(d, today) ? ' today' : '') + (U.sameDay(d, selected) ? ' sel' : '') + (inSel ? ' inrange' : '') + (busy.has(U.dateKey(d)) ? ' busy' : ''),
+        dataset: { date: U.dateKey(d) },
       }, d.getDate());
       b.addEventListener('click', () => { miniDate._pinned = false; App.goto(d); });
       g.append(b);
