@@ -511,14 +511,19 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
   body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w) - 20px); }
   .view-switch button { padding: 7px 10px; }
 }
-/* Drei matte Teile, Seitenteile nach innen geneigt (nur breite Bildschirme) */
+/* Drei matte Teile, Seitenteile nach innen geneigt (nur breite Bildschirme).
+   Nur die Karten dahinter sind in 3D gedreht, die Schrift bleibt flach und dadurch gestochen scharf. */
 @media (min-width: 1081px) {
-  .layout { perspective: 2200px; gap: 14px; padding: 2px 20px 14px; }
-  .sidebar, .todo-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 26px 50px -28px rgba(0, 0, 0, .9); }
-  .sidebar { transform: rotateY(9deg); transform-origin: right center; }
-  .todo-panel { transform: rotateY(-9deg); transform-origin: left center; overflow: hidden; }
-  .main { padding: 0; }
+  .layout { position: relative; gap: 14px; padding: 2px 20px 14px; }
+  .layout::before, .layout::after { content: ""; position: absolute; top: 2px; bottom: 14px; z-index: 0; pointer-events: none;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 26px 50px -28px rgba(0, 0, 0, .9); transition: opacity .2s; }
+  .layout::before { left: 20px; width: var(--sidebar-w); transform: perspective(1400px) rotateY(9deg); transform-origin: right center; }
+  .layout::after { right: 20px; width: var(--todo-w); transform: perspective(1400px) rotateY(-9deg); transform-origin: left center; }
+  .sidebar, .todo-panel { position: relative; z-index: 1; background: transparent; border: 0; }
+  .todo-panel { overflow: hidden; }
+  .main { padding: 0; position: relative; z-index: 1; }
   .view-container { margin-top: 0; border-radius: 22px; box-shadow: 0 26px 50px -28px rgba(0, 0, 0, .9); }
+  body.no-sidebar .layout::before, body.no-todos .layout::after { opacity: 0; }
   body.no-sidebar .sidebar { margin-left: calc(-1 * var(--sidebar-w) - 14px); }
   body.no-sidebar .main { padding-left: 0; }
   body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w) - 14px); }
