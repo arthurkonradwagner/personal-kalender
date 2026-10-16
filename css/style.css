@@ -739,27 +739,3 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .prj-row select { width: auto; max-width: 60%; }
 .prj-colors { display: flex; gap: 6px; flex-wrap: wrap; }
 .prj-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
-
-/* Leuchtender Mauszeiger (js/glow.js, nur PC mit Maus) */
-:root { --glow-core: #2a2a30; --glow-ring: rgba(255, 255, 255, .9); --glow-halo: rgba(40, 40, 48, .16); --glow-blend: normal; }
-:root[data-theme="dark"] { --glow-core: #ffffff; --glow-ring: rgba(226, 230, 238, .7); --glow-halo: rgba(222, 226, 236, .28); --glow-blend: screen; }
-.glow-dot, .glow-halo { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 10000; pointer-events: none; opacity: 0; transition: opacity .25s ease-out; will-change: transform; }
-html.glow-on .glow-dot, html.glow-on .glow-halo { opacity: 1; }
-.glow-dot::before, .glow-halo::before { content: ""; position: absolute; border-radius: 50%; transition: transform .28s cubic-bezier(.2, .8, .2, 1), opacity .2s; }
-.glow-dot::before { width: 8px; height: 8px; left: -4px; top: -4px; background: radial-gradient(circle, var(--glow-core) 0 45%, color-mix(in srgb, var(--glow-core) 60%, transparent) 70%, transparent 100%); box-shadow: 0 0 0 1px rgba(0, 0, 0, .3), 0 0 5px 1px var(--glow-ring), 0 0 14px 3px var(--glow-halo); }
-.glow-halo { mix-blend-mode: var(--glow-blend); }
-.glow-halo::before { width: 64px; height: 64px; left: -32px; top: -32px; background: radial-gradient(circle, var(--glow-halo) 0%, color-mix(in srgb, var(--glow-halo) 45%, transparent) 40%, transparent 70%); animation: glow-shimmer 2.6s ease-in-out infinite alternate; }
-@keyframes glow-shimmer { from { opacity: .7; scale: .94; } to { opacity: 1; scale: 1.08; } }
-html.glow-hot .glow-halo::before { transform: scale(1.55); }
-html.glow-hot .glow-dot::before { transform: scale(1.3); }
-html.glow-press .glow-halo::before { transform: scale(.75); }
-html.glow-press .glow-dot::before { transform: scale(.7); }
-html.glow-text .glow-dot::before { opacity: 0; }
-html.glow-text .glow-halo::before { transform: scale(.6); }
-html.glow-on, html.glow-on * { cursor: none !important; }
-html.glow-on input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), html.glow-on textarea, html.glow-on [contenteditable="true"] { cursor: text !important; }
-html.glow-on .ev-resize { cursor: ns-resize !important; }
-@media (prefers-reduced-motion: reduce) {
-  .glow-halo::before { animation: none; }
-  .glow-dot::before, .glow-halo::before { transition: none; }
-}
