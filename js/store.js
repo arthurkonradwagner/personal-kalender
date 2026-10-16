@@ -221,7 +221,10 @@ const Store = (() => {
     const t = { id: U.uid(), listId: state.todoLists[0]?.id, title: '', notes: '', due: null, time: null, priority: 0, done: false, doneAt: null, createdAt: Date.now(), order: minOrder - 1, subtasks: [], ...data };
     state.todos.push(t); emit('todos'); return t;
   }
-  function updateTodo(id, patch) { Object.assign(todo(id), patch); emit('todos'); }
+  // letzte eigene Änderung an einer Aufgabe (z. B. auf einen anderen Tag gezogen); Sync läuft nicht hierüber
+  let lastEdit = 0;
+  const editedRecently = () => Date.now() - lastEdit < 4000;
+  function updateTodo(id, patch) { lastEdit = Date.now(); Object.assign(todo(id), patch); emit('todos'); }
   function removeTodo(id) { snapshot(); state.todos = state.todos.filter((t) => t.id !== id); emit('todos'); }
   function toggleTodo(id) {
     const t = todo(id);
@@ -261,7 +264,7 @@ const Store = (() => {
     get state() { return state; }, subscribe, emit, save, snapshot, undo, exportForSync, merge, mergeRemote,
     calendar, addCalendar, updateCalendar, removeCalendar,
     event, addEvent, updateEvent, removeEvent,
-    todo, addTodo, updateTodo, removeTodo, toggleTodo,
+    todo, addTodo, updateTodo, removeTodo, toggleTodo, editedRecently,
     todoList, addTodoList, updateTodoList, removeTodoList,
     setSetting, replaceAll, reset,
   };

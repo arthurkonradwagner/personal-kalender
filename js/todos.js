@@ -47,7 +47,7 @@ const Todos = (() => {
     else if (p.pct > 0) msg = 'Guter Anfang, weiter so.';
     else msg = 'Los geht’s!';
     U.$('#progressMsg').textContent = msg;
-    if (lastPct != null && lastPct < 100 && p.pct === 100) { celebrate(); if (Sound.recent()) moneyRain(); }
+    if (lastPct != null && lastPct < 100 && p.pct === 100) { celebrate(); if (Sound.recent() || Store.editedRecently()) rocketShow(); }
     lastPct = p.pct;
     document.title = (p.pct != null ? `${p.pct}% · ` : '') + 'Persönlicher Kalender';
     const np = U.$('#navPct'); if (np) np.textContent = p.pct != null ? p.pct + '%' : '';
@@ -63,33 +63,109 @@ const Todos = (() => {
     }
   }
 
-  // Geldscheine fliegen über den ganzen Bildschirm
-  const BILL = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64">
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fbf6a"/><stop offset="1" stop-color="#2f7d3a"/></linearGradient></defs>
-<rect x="1" y="1" width="118" height="62" rx="5" fill="url(#g)" stroke="#1e5a28" stroke-width="2"/>
-<rect x="7" y="7" width="106" height="50" rx="3" fill="none" stroke="#c9f0c9" stroke-opacity=".6" stroke-width="1.5"/>
-<circle cx="60" cy="32" r="16" fill="#c9f0c9" fill-opacity=".85"/>
-<text x="60" y="39" font-family="Arial,sans-serif" font-size="20" font-weight="700" text-anchor="middle" fill="#1e5a28">€</text>
-<text x="18" y="22" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#eaffea">100</text>
-<text x="102" y="52" font-family="Arial,sans-serif" font-size="11" font-weight="700" text-anchor="end" fill="#eaffea">100</text></svg>`);
-  function moneyRain() {
-    U.$('.money-rain')?.remove();
-    const few = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const n = few ? 10 : window.innerWidth < 700 ? 34 : 60;
-    const box = h('div', { class: 'money-rain', 'aria-hidden': 'true' });
-    for (let i = 0; i < n; i++) {
-      const w = 54 + Math.random() * 46;
-      box.append(h('img', { src: BILL, class: 'bill', alt: '', style: {
-        width: w + 'px', left: `${Math.random() * 100}%`,
-        '--d': `${2.4 + Math.random() * 1.8}s`, '--delay': `${Math.random() * 1.4}s`,
-        '--x': `${(Math.random() - 0.5) * 260}px`, '--r0': `${Math.random() * 360}deg`, '--r1': `${(Math.random() - 0.5) * 900}deg`,
-        '--s': `${1.4 + Math.random() * 1.6}`,
-      } }));
-    }
+  // Silberrakete bei 100 %: steigt mit Feuerstrahl von unten auf und zerplatzt in ein silbernes Feuerwerk
+  const ROCKET = `<svg viewBox="-60 -95 120 330" xmlns="http://www.w3.org/2000/svg"><defs>
+<linearGradient id="rkC" x1="0" x2="1"><stop offset="0" stop-color="#5d6068"/><stop offset=".22" stop-color="#f6f7f9"/><stop offset=".45" stop-color="#c3c6cc"/><stop offset=".7" stop-color="#eceef1"/><stop offset="1" stop-color="#6e7179"/></linearGradient>
+<linearGradient id="rkD" x1="0" x2="1"><stop offset="0" stop-color="#2a2a2e"/><stop offset=".35" stop-color="#9a9da5"/><stop offset=".6" stop-color="#55585f"/><stop offset="1" stop-color="#1d1d20"/></linearGradient>
+<linearGradient id="rkS" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6f7f9"/><stop offset=".45" stop-color="#c3c6cc"/><stop offset="1" stop-color="#8a8d95"/></linearGradient>
+<linearGradient id="rkF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".18" stop-color="#fff3c9"/><stop offset=".45" stop-color="#ffb25a"/><stop offset=".75" stop-color="#ff6a2a" stop-opacity=".7"/><stop offset="1" stop-color="#ff4a1a" stop-opacity="0"/></linearGradient>
+<radialGradient id="rkG"><stop offset="0" stop-color="#ffe2b0" stop-opacity=".7"/><stop offset=".4" stop-color="#ff9a4a" stop-opacity=".18"/><stop offset="1" stop-color="#ff9a4a" stop-opacity="0"/></radialGradient>
+<radialGradient id="rkV" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#4a4d55"/><stop offset=".5" stop-color="#15161a"/><stop offset="1" stop-color="#050506"/></radialGradient></defs>
+<g class="rk-flame"><ellipse cx="0" cy="130" rx="38" ry="95" fill="url(#rkG)"/>
+<path d="M-17 54 C-22 110 -6 185 0 225 C6 185 22 110 17 54Z" fill="url(#rkF)"/>
+<path d="M-8 54 C-10 92 -3 125 0 140 C3 125 10 92 8 54Z" fill="#fff"/></g>
+<path d="M-24 18 L-50 62 L-46 72 L-20 56Z" fill="url(#rkD)"/><path d="M24 18 L50 62 L46 72 L20 56Z" fill="url(#rkD)"/>
+<path d="M0 -86 C30 -54 31 12 24 54 L-24 54 C-31 12 -30 -54 0 -86Z" fill="url(#rkC)"/>
+<path d="M0 -86 C12 -73 18 -60 21 -48 L-21 -48 C-18 -60 -12 -73 0 -86Z" fill="url(#rkD)"/>
+<rect x="-26" y="34" width="52" height="5" fill="#2a2a2e" opacity=".55"/><rect x="-15" y="52" width="30" height="10" rx="2" fill="url(#rkD)"/>
+<circle cx="0" cy="-16" r="13" fill="url(#rkS)"/><circle cx="0" cy="-16" r="9.5" fill="url(#rkV)"/><ellipse cx="-3.5" cy="-20" rx="3.5" ry="2.2" fill="#fff" opacity=".7"/>
+<path d="M-6 50 L-6 -58" stroke="#fff" stroke-width="3" opacity=".45" stroke-linecap="round"/></svg>`;
+
+  function rocketShow() {
+    U.$('.rocket-show')?.remove();
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const W = window.innerWidth, H = window.innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const k = Math.max(0.55, Math.min(1, H / 900)), R = Math.min(W, H) * 0.32;
+    const box = h('div', { class: 'rocket-show', 'aria-hidden': 'true' });
+    const cv = h('canvas', { width: W * dpr, height: H * dpr });
+    const rk = h('div', { class: 'rk', style: { width: 120 * k + 'px', height: 330 * k + 'px' } });
+    rk.innerHTML = ROCKET;
+    const txt = h('div', { class: 'rk-text' }, h('b', {}, '100 %'), h('span', {}, 'Alles erledigt für heute'));
+    box.append(cv, rk, txt);
     box.addEventListener('click', () => box.remove());
     document.body.append(box);
-    Sound.jackpot();
-    setTimeout(() => box.remove(), 5200);
+    requestAnimationFrame(() => box.classList.add('on'));
+    Sound.rocket(calm);
+
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
+    const parts = [];
+    const x0 = W / 2, side = Math.random() < 0.5 ? -1 : 1, bx = x0 + side * W * 0.06, by = H * 0.3, yI = H - 40 * k;
+    const LIFT = 1700; // ms bis zum Zerplatzen
+    // Flugbahn: erst langsam aus dem Rauch, dann immer schneller nach oben
+    const pos = (t) => {
+      if (t < 450) { const u = 1 - (1 - t / 450) ** 2; return [x0 + Math.sin(t / 25) * 1.5, H + 110 * k - (H + 110 * k - yI) * u]; }
+      const u = Math.min(1, (t - 450) / (LIFT - 450)), e = u * u;
+      return [x0 + (bx - x0) * e, yI + (by - yI) * e];
+    };
+    const silver = () => { const r = Math.random(); return r < 0.15 ? '255,217,160' : r < 0.6 ? '246,247,249' : '195,198,204'; };
+    function burst(x, y, size, n) {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, sp = size * 1.8 * (0.75 + Math.random() * 0.4);
+        parts.push({ x, y, px: x, py: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, max: 1.1 + Math.random() * 0.8, w: 1.2 + Math.random() * 1.6, c: silver(), tw: Math.random() < 0.3 });
+      }
+      parts.push({ x, y, life: 0, max: 0.35, flash: size });
+    }
+    const plan = calm ? [[0, () => burst(W / 2, H * 0.38, R, 70)]] : [
+      [LIFT, () => burst(bx, by, R, 150)],
+      [LIFT + 300, () => burst(x0 - side * W * 0.22, H * 0.42, R * 0.55, 70)],
+      [LIFT + 560, () => burst(x0 + side * W * 0.25, H * 0.36, R * 0.6, 80)],
+    ];
+    if (calm) rk.remove();
+    const t0 = performance.now(), END = calm ? 2600 : 4400;
+    let last = t0;
+    function frame(now) {
+      if (!box.isConnected) return;
+      const t = now - t0, dt = Math.min(0.05, (now - last) / 1000); last = now;
+      while (plan.length && t >= plan[0][0]) plan.shift()[1]();
+      if (!calm && t < LIFT) {
+        const [x, y] = pos(t), [x2, y2] = pos(t + 16), ang = Math.atan2(x2 - x, y - y2) * 180 / Math.PI;
+        rk.style.transform = `translate(${x - 60 * k}px, ${y - 95 * k}px) rotate(${ang}deg)`;
+        const ny = y + 62 * k;
+        for (let i = 0; i < 3; i++) parts.push({ x: x + (Math.random() - 0.5) * 10 * k, y: ny, px: x, py: ny, vx: (Math.random() - 0.5) * 60, vy: 120 + Math.random() * 160, life: 0, max: 0.35 + Math.random() * 0.3, w: 1.5 + Math.random() * 2, c: Math.random() < 0.6 ? '255,190,110' : '255,243,201' });
+        if (t < 900 || Math.random() < 0.5) parts.push({ x: x + (Math.random() - 0.5) * 30 * k, y: ny + 40 * k, vx: (Math.random() - 0.5) * 140, vy: 20 + Math.random() * 40, life: 0, max: 1.4 + Math.random(), r: 18 * k + Math.random() * 20 * k, smoke: true });
+      } else if (rk.isConnected) rk.remove();
+      if (t > LIFT + 150) txt.classList.add('on');
+      ctx.clearRect(0, 0, W, H);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        p.life += dt;
+        if (p.life >= p.max) { parts.splice(i, 1); continue; }
+        const f = 1 - p.life / p.max;
+        if (p.flash) {
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.flash * 0.8);
+          g.addColorStop(0, `rgba(255,255,255,${0.5 * f})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g; ctx.fillRect(p.x - p.flash, p.y - p.flash, p.flash * 2, p.flash * 2);
+        } else if (p.smoke) {
+          p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 1 - 1.5 * dt; p.r += 30 * dt;
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = `rgba(110,112,118,${0.1 * f})`;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+        } else {
+          p.px = p.x; p.py = p.y;
+          p.vx *= 1 - 1.8 * dt; p.vy = p.vy * (1 - 1.8 * dt) + 90 * dt;
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          const a = p.tw && f < 0.5 ? f * (Math.random() < 0.5 ? 0.3 : 1.6) : f; // Glitzern zum Schluss
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.strokeStyle = `rgba(${p.c},${Math.min(1, a)})`; ctx.lineWidth = p.w; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(p.px - p.vx * 0.03, p.py - p.vy * 0.03); ctx.lineTo(p.x, p.y); ctx.stroke();
+        }
+      }
+      if (t > END) box.classList.remove('on');
+      if (t > END + 500) { box.remove(); return; }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
   }
 
   // ---------- Schnelleingabe ----------

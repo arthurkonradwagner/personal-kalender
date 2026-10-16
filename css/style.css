@@ -301,15 +301,17 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .progress-sub { color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
 .progress-msg { font-size: 12.5px; margin-top: 6px; color: var(--accent); font-weight: 600; }
 .confetti { position: absolute; top: 50%; width: 7px; height: 11px; border-radius: 2px; animation: confetti 1.2s ease-out forwards; pointer-events: none; }
-.money-rain { position: fixed; inset: 0; z-index: 9999; pointer-events: none; overflow: hidden; }
-.money-rain .bill { position: absolute; top: -90px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); animation: bill-fall var(--d) cubic-bezier(.35,.1,.6,1) var(--delay) forwards; transform: rotate(var(--r0)); opacity: 0; }
-@keyframes bill-fall {
-  0% { opacity: 1; transform: translate(0, 0) rotate(var(--r0)) rotateY(0deg); }
-  25% { transform: translate(calc(var(--x) * .4), 30vh) rotate(calc(var(--r0) + var(--r1) * .3)) rotateY(calc(var(--s) * 180deg)); }
-  50% { transform: translate(calc(var(--x) * -.2), 60vh) rotate(calc(var(--r0) + var(--r1) * .6)) rotateY(calc(var(--s) * 360deg)); }
-  85% { opacity: 1; }
-  100% { opacity: 0; transform: translate(var(--x), calc(100vh + 120px)) rotate(calc(var(--r0) + var(--r1))) rotateY(calc(var(--s) * 600deg)); }
-}
+.rocket-show { position: fixed; inset: 0; z-index: 9999; pointer-events: none; background: rgba(0, 0, 0, .55); opacity: 0; transition: opacity .35s ease; }
+.rocket-show.on { opacity: 1; }
+.rocket-show canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rocket-show .rk { position: absolute; left: 0; top: 0; will-change: transform; filter: drop-shadow(0 0 18px rgba(255, 190, 110, .35)); }
+.rocket-show .rk svg { width: 100%; height: 100%; display: block; }
+.rocket-show .rk-flame { transform-box: fill-box; transform-origin: 50% 0; animation: rk-flicker .09s ease-in-out infinite alternate; }
+.rocket-show .rk-text { position: absolute; left: 0; right: 0; top: 60%; text-align: center; opacity: 0; transform: translateY(18px) scale(.85); transition: opacity .5s ease, transform .7s cubic-bezier(.2, 1.4, .4, 1); }
+.rocket-show .rk-text.on { opacity: 1; transform: none; }
+.rocket-show .rk-text b { display: block; font-size: clamp(56px, 11vw, 120px); font-weight: 800; letter-spacing: -1px; line-height: 1; background: linear-gradient(145deg, #f6f7f9 0%, #c3c6cc 45%, #eceef1 70%, #9a9da5 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 4px 18px rgba(0, 0, 0, .6)); }
+.rocket-show .rk-text span { display: block; margin-top: 10px; font-size: clamp(14px, 2.2vw, 19px); color: #c3c6cc; }
+@keyframes rk-flicker { from { transform: scaleY(.88) scaleX(1.04); } to { transform: scaleY(1.08) scaleX(.96); } }
 @keyframes confetti { to { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
 
 .todo-head { padding: 8px 14px 4px; }

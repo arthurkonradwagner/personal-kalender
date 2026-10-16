@@ -46,24 +46,33 @@ const Sound = (() => {
     } catch (e) { /* ohne Ton weiter */ }
   }
 
-  // Jackpot bei 100 %: Kasse, aufsteigende Glocken und ein Münzregen
-  function jackpot() {
+  // Rakete bei 100 %: aufsteigendes Rauschen, dann Knall und Knistern vom Feuerwerk
+  function rocket(calm) {
     if (Store.state.settings.soundDone === false) return;
     try {
-      const c = audio(), t = c.currentTime + 0.25;
-      const out = c.createGain(); out.gain.value = 0.85; out.connect(c.destination);
-      noise(c, out, t, 0.08, 2200, 1, 0.5);
-      [1568, 1976, 2349, 3136].forEach((f, i) => bell(c, out, t + 0.1 + i * 0.11, f, 0.16));
-      bell(c, out, t + 0.6, 2637, 0.2);
-      for (let i = 0; i < 40; i++) {
-        const at = t + 0.5 + Math.random() * 1.8 * (i / 40) + i * 0.02;
-        noise(c, out, at, 0.03, 5000 + Math.random() * 4000, 9, 0.28 * (1 - i / 50));
+      const c = audio(), t = c.currentTime + 0.05, sr = c.sampleRate;
+      const out = c.createGain(); out.gain.value = 0.8; out.connect(c.destination);
+      const lift = calm ? 0 : 1.7;
+      if (!calm) {
+        const buf = c.createBuffer(1, Math.ceil(sr * lift), sr), d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+        src.buffer = buf; f.type = 'bandpass'; f.Q.value = 1.4;
+        f.frequency.setValueAtTime(250, t); f.frequency.exponentialRampToValueAtTime(2800, t + lift);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.35); g.gain.exponentialRampToValueAtTime(0.05, t + lift);
+        src.connect(f); f.connect(g); g.connect(out); src.start(t);
       }
+      [[0, 0.6], [0.3, 0.35], [0.56, 0.4]].slice(0, calm ? 1 : 3).forEach(([dt, v]) => {
+        const b = t + lift + dt;
+        noise(c, out, b, 0.5, 120, 0.7, v * 1.6);   // Knall
+        noise(c, out, b, 0.12, 900, 0.8, v);
+        for (let i = 0; i < 14; i++) noise(c, out, b + 0.25 + Math.random() * 1.1, 0.02, 5000 + Math.random() * 4000, 6, v * 0.35); // Knistern
+      });
     } catch (e) { /* ohne Ton weiter */ }
   }
 
   // true, wenn der Nutzer gerade selbst etwas abgehakt hat (nicht durch Sync oder Zeitablauf)
   const recent = () => Date.now() - lastCash < 4000;
 
-  return { cash, jackpot, recent };
+  return { cash, rocket, recent };
 })();
