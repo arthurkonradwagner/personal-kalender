@@ -41,12 +41,12 @@ const Modal = (() => {
 const Dialogs = (() => {
   const { h } = U;
 
-  function colorPicker(current, inheritColor, onPick) {
+  function colorPicker(current, inheritColor, onPick, inheritTitle = 'Kalenderfarbe verwenden') {
     const wrap = h('div', { class: 'color-picker' });
     const draw = (sel) => {
       wrap.innerHTML = '';
       if (inheritColor) {
-        const b = h('button', { type: 'button', class: 'swatch inherit' + (!sel ? ' sel' : ''), title: 'Kalenderfarbe verwenden', style: { background: inheritColor } }, '');
+        const b = h('button', { type: 'button', class: 'swatch inherit' + (!sel ? ' sel' : ''), title: inheritTitle, style: { background: inheritColor } }, '');
         b.addEventListener('click', () => { onPick(null); draw(null); });
         wrap.append(b);
       }
@@ -352,6 +352,41 @@ const Dialogs = (() => {
     Modal.open(content, { width: 420 });
   }
 
+  // ---------- Schnellfenster „Aufgabe hinzufügen“ für einen Tag ----------
+  // Farbe: null = Farbe der Liste (wie bisher), sonst eigene Farbe nur für diese Aufgabe.
+  function quickTodo(day, onAdded) {
+    const S = Store.state;
+    const listId = S.settings.todoListFilter || S.todoLists[0]?.id;
+    const list = Store.todoList(listId);
+    let color = null;
+    const title = h('input', { placeholder: 'Was ist zu tun?', maxlength: 200, autofocus: true });
+    const notes = h('textarea', { placeholder: 'Beschreibung (optional)', rows: 2 });
+    const picker = colorPicker(null, list ? list.color : '#616161', (c) => { color = c; }, 'Standardfarbe');
+    const content = h('form', { class: 'simple-form quick-todo' },
+      h('h3', null, 'Aufgabe hinzufügen'),
+      h('small', { class: 'qt-day' }, U.sameDay(day, new Date()) ? 'Heute · ' + U.fmtDateShort(day) : U.fmtDateShort(day)),
+      title, notes, h('div', { class: 'lbl' }, 'Farbe'), picker.el,
+      h('div', { class: 'ed-actions' },
+        h('button', { type: 'button', class: 'btn btn-ghost small qt-event', title: 'Stattdessen einen ganztägigen Termin anlegen',
+          onclick: () => { Modal.close(); App.openEditor({ allDay: true, start: U.dateKey(day), end: U.dateKey(day) }); } }, 'Ganztägiger Termin'),
+        h('span', { class: 'spacer' }),
+        h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => Modal.close() }, 'Abbrechen'),
+        h('button', { type: 'submit', class: 'btn btn-primary' }, 'Hinzufügen')));
+    title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); content.requestSubmit(); } });
+    content.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const txt = title.value.trim();
+      if (!txt) { title.focus(); return; }
+      const p = Todos.parseQuick(txt);
+      const t = Store.addTodo({ title: p.title || txt, notes: notes.value.trim(), due: U.dateKey(day), time: p.time || null,
+        priority: p.priority || 0, listId: p.listId || listId, color });
+      Modal.close();
+      App.toast('Aufgabe hinzugefügt');
+      onAdded && onAdded(t);
+    });
+    Modal.open(content, { width: 420, cls: 'modal-quick-todo' });
+  }
+
   // ---------- Einstellungen ----------
   function settings() {
     const S = Store.state;
@@ -473,5 +508,5 @@ const Dialogs = (() => {
       h('table', null, ...rows.map(([k, v]) => h('tr', null, h('td', null, ...k.split(' ').map((p) => (p.length <= 5 && p !== 'oder' && p !== '/' ? h('kbd', null, p) : ' ' + p + ' '))), h('td', null, v))))), { width: 440 });
   }
 
-  return { eventEditor, editCalendar, editTodoList, settings, shortcuts, colorPicker };
+  return { eventEditor, editCalendar, editTodoList, quickTodo, settings, shortcuts, colorPicker };
 })();

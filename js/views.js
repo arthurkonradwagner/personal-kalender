@@ -74,7 +74,7 @@ const Views = (() => {
         if (d < U.startOfDay(from) || d >= to) continue;
         const list = Store.todoList(t.listId);
         out.push({ kind: 'todo', id: t.id, todo: t, start: d, end: U.addDays(d, 1), allDay: true,
-          title: (t.time ? t.time + ' ' : '') + t.title, color: list ? list.color : '#6d5efc', done: t.done, key: 'todo' + t.id });
+          title: (t.time ? t.time + ' ' : '') + t.title, color: t.color || (list ? list.color : '#6d5efc'), done: t.done, key: 'todo' + t.id });
       }
     }
     return out;
@@ -265,7 +265,7 @@ const Views = (() => {
       const open = list.filter((t) => !t.done).length;
       const rows = list.map((t) => {
         const l = Store.todoList(t.listId);
-        const row = h('div', { class: 'ts-item' + (t.done ? ' done' : ''), style: { '--c': l ? l.color : 'var(--accent)' } },
+        const row = h('div', { class: 'ts-item' + (t.done ? ' done' : ''), style: { '--c': t.color || (l ? l.color : 'var(--accent)') } },
           h('button', { class: 'ts-check', title: 'Erledigt' }, t.done ? '✓' : ''),
           h('div', { class: 'ts-body' }, h('div', { class: 'ts-title' }, t.title),
             t.notes ? h('div', { class: 'ts-desc' }, t.notes) : null,
@@ -280,6 +280,7 @@ const Views = (() => {
           h('div', null, h('h3', null, U.sameDay(d, new Date()) ? 'Aufgaben heute' : `Aufgaben am ${U.WEEKDAYS[d.getDay()]}`),
             h('small', null, `${U.fmtDateShort(d)} · ${open} offen von ${list.length}`)),
           h('button', { class: 'icon-btn', onclick: () => Modal.close() }, '✕')),
+        h('button', { class: 'ts-add', onclick: () => Dialogs.quickTodo(d, () => box.replaceChildren(...build())) }, '+ Aufgabe hinzufügen'),
         h('div', { class: 'ts-list' }, ...(rows.length ? rows : [h('p', { class: 'muted' }, 'Keine Aufgaben an diesem Tag.')])),
         rows.length ? h('p', { class: 'ts-hint' }, 'Tipp: Aufgabe länger halten und auf einen anderen Tag ziehen.') : null,
       ];
@@ -357,7 +358,7 @@ const Views = (() => {
     if (back) back.classList.add('todo-dragging'); // Blatt ausblenden, Kalender wird sichtbar
     App.hidePopover();
     const list = Store.todoList(t.listId);
-    const ghost = h('div', { class: 'todo-drag-ghost', style: { '--c': list ? list.color : 'var(--accent)' } },
+    const ghost = h('div', { class: 'todo-drag-ghost', style: { '--c': t.color || (list ? list.color : 'var(--accent)') } },
       h('span', { class: 'todo-box' }), h('span', { class: 'tdg-title' }, t.title), h('span', { class: 'tdg-day' }));
     document.body.append(ghost);
     let target = null, edge = null, last = { x, y };
@@ -503,10 +504,13 @@ const Views = (() => {
     adRow.append(h('div', { class: 'tg-gutter-ad' }, 'ganztägig'));
     const adArea = h('div', { class: 'tg-ad-area', style: { gridColumn: `2 / span ${nDays}` } });
     for (let i = 0; i < nDays; i++) {
-      const slot = h('div', { class: 'tg-ad-slot', style: { left: `${(i / nDays) * 100}%`, width: `${100 / nDays}%` } });
+      // Klick/Tippen auf den leeren Aufgabenbereich: ohne Aufgaben Schnellfenster, sonst das große Aufgabenfenster.
+      // Lange halten (Handy) legt wie bisher einen ganztägigen Termin an.
+      const slot = h('div', { class: 'tg-ad-slot', title: todosOf(days[i]).length ? 'Aufgaben ansehen' : 'Aufgabe hinzufügen', style: { left: `${(i / nDays) * 100}%`, width: `${100 / nDays}%` } });
       const newAllDay = () => App.openEditor({ allDay: true, start: U.dateKey(days[i]), end: U.dateKey(days[i]) });
+      const tasksOrAdd = () => (todosOf(days[i]).length ? taskSheet(days[i]) : Dialogs.quickTodo(days[i]));
       const clickKind = onLongPress(slot, newAllDay);
-      slot.addEventListener('click', (e) => { if (clickKind(e) === 'mouse') newAllDay(); });
+      slot.addEventListener('click', (e) => { if (clickKind(e)) tasksOrAdd(); });
       adArea.append(slot);
     }
     const lanes = [];
