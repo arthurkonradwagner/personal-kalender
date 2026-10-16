@@ -128,17 +128,34 @@
       </div>
       <div class="todo-lists" id="todoListChips"></div>
 
+      <div class="todo-add-backdrop" id="todoAddBackdrop"></div>
       <form class="todo-add" id="todoAddForm" autocomplete="off">
         <div class="todo-add-line">
           <span class="todo-add-plus">+</span>
-          <input id="todoAddInput" placeholder="Titel der Aufgabe …" maxlength="300">
+          <input id="todoAddInput" placeholder="Neue Aufgabe …" maxlength="300" enterkeyhint="done">
+          <button type="button" class="ta-close" id="todoAddClose" title="Schließen" aria-label="Schließen">×</button>
         </div>
         <div class="todo-add-more">
-          <textarea id="todoAddNotes" rows="2" placeholder="Beschreibung (optional) …" maxlength="4000"></textarea>
-          <button type="submit" class="btn btn-primary small">Hinzufügen</button>
+          <button type="button" class="ta-desc-btn" id="todoAddDescBtn"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 8h12M2 12h7"/></svg>Beschreibung hinzufügen</button>
+          <textarea id="todoAddNotes" rows="2" placeholder="Beschreibung …" maxlength="4000" hidden></textarea>
+          <div class="ta-sec">
+            <div class="ta-lbl">Wann</div>
+            <div class="ta-chips" id="todoAddWhen"></div>
+            <div class="ta-week" id="todoAddWeek"></div>
+            <div class="ta-cal" id="todoAddCal" hidden></div>
+          </div>
+          <div class="ta-sec">
+            <div class="ta-lbl">Extras</div>
+            <div class="ta-chips" id="todoAddExtras"></div>
+            <div class="ta-extra" id="todoAddExtra" hidden></div>
+          </div>
+          <div class="ta-foot">
+            <div class="ta-sum" id="todoAddSum"></div>
+            <button type="submit" class="btn btn-primary small ta-submit">Hinzufügen <kbd>Enter</kbd></button>
+          </div>
         </div>
+        <div class="todo-hint" id="todoHint">Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“</div>
       </form>
-      <div class="todo-hint" id="todoHint">Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“</div>
 
       <div class="todo-items" id="todoItems"></div>
     </aside>

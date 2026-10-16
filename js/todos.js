@@ -335,29 +335,180 @@ const Todos = (() => {
   function bind() {
     U.$$('#todoTabs button').forEach((b) => b.addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', b.dataset.filter); }));
     U.$('#projTab').addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', Store.state.settings.todoFilter === 'projects' ? 'today' : 'projects'); });
+    bindAdd();
+  }
+
+  // ---------- Eingabe-Karte: Titel, Wann, Extras ----------
+  const ICO = {
+    cal: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3"/></svg>',
+    clock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg>',
+    flag: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 1.5h1.4v13H3zM4.4 2h8.6l-2 3.2 2 3.3H4.4z"/></svg>',
+  };
+  const WHEN = [['Heute', 0], ['Morgen', 1], ['In 1 Woche', 7], ['In 2 Wochen', 14]];
+
+  function bindAdd() {
     const form = U.$('#todoAddForm'), input = U.$('#todoAddInput'), notesIn = U.$('#todoAddNotes');
+    const descBtn = U.$('#todoAddDescBtn'), whenEl = U.$('#todoAddWhen'), weekEl = U.$('#todoAddWeek'), calEl = U.$('#todoAddCal');
+    const extrasEl = U.$('#todoAddExtras'), extraEl = U.$('#todoAddExtra'), sumEl = U.$('#todoAddSum'), panel = U.$('#todoPanel');
+    const mobile = window.matchMedia('(max-width: 820px)');
+    // Was der Nutzer selbst gewählt hat; alles andere kommt aus dem Text oder dem Standard
+    let picked = {}, extra = null, calMonth = null, weekStart = null;
+
+    const defDue = () => {
+      const f = Store.state.settings.todoFilter;
+      return f === 'today' ? todayKey() : f === 'upcoming' ? U.dateKey(U.addDays(new Date(), 1)) : null;
+    };
+    const defList = () => Store.state.settings.todoListFilter || Store.state.todoLists[0]?.id;
+    // Vorschau ohne Listen anzulegen
+    const previewText = () => input.value.replace(/#([\wäöüÄÖÜß-]+)/g, (m, name) => Store.state.todoLists.some((l) => l.name.toLowerCase().startsWith(name.toLowerCase())) ? m : '');
+    function current() {
+      const p = input.value.trim() ? parseQuick(previewText()) : { due: null, time: null, priority: 0, listId: null };
+      const has = (k) => Object.prototype.hasOwnProperty.call(picked, k);
+      return {
+        due: has('due') ? picked.due : (p.due || defDue()),
+        time: has('time') ? picked.time : p.time,
+        priority: has('priority') ? picked.priority : p.priority,
+        listId: has('listId') ? picked.listId : (p.listId || defList()),
+        color: picked.color || null,
+      };
+    }
+    const pick = (patch) => { Object.assign(picked, patch); draw(); };
+    const offsetOf = (key) => key ? U.daysBetween(new Date(), U.parseDate(key)) : null;
+
+    function chip(label, on, onclick, opts = {}) {
+      return h('button', { type: 'button', class: 'ta-chip' + (on ? ' on' : '') + (opts.ghost ? ' ghost' : ''), onclick, title: opts.title },
+        opts.ico ? h('span', { class: 'ta-ico', html: opts.ico, style: opts.icoColor ? { color: opts.icoColor } : null }) : null,
+        opts.dot ? h('span', { class: 'dot', style: { background: opts.dot } }) : null, label);
+    }
+
+    function drawCal(due) {
+      calEl.hidden = !calMonth;
+      if (!calMonth) return;
+      const today = U.startOfDay(new Date());
+      const first = U.startOfWeek(calMonth, 1);
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const d = U.addDays(first, i);
+        if (i >= 35 && d.getMonth() !== calMonth.getMonth()) break;
+        const k = U.dateKey(d), out = d.getMonth() !== calMonth.getMonth(), past = d < today;
+        cells.push(h('button', { type: 'button', disabled: past, class: 'ta-day' + (out ? ' out' : '') + (U.sameDay(d, today) ? ' today' : '') + (k === due ? ' sel' : '') + (d.getDay() % 6 === 0 ? ' we' : ''),
+          onclick: () => { calMonth = null; pick({ due: k }); } }, d.getDate()));
+      }
+      calEl.replaceChildren(
+        h('div', { class: 'ta-cal-head' },
+          h('button', { type: 'button', class: 'ta-nav', title: 'Voriger Monat', onclick: () => { calMonth = U.addMonths(calMonth, -1); draw(); } }, '‹'),
+          h('b', null, `${U.MONTHS[calMonth.getMonth()]} ${calMonth.getFullYear()}`),
+          h('button', { type: 'button', class: 'ta-nav', title: 'Nächster Monat', onclick: () => { calMonth = U.addMonths(calMonth, 1); draw(); } }, '›')),
+        h('div', { class: 'ta-grid' }, ...['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((w) => h('span', { class: 'ta-wd' }, w)), ...cells));
+    }
+
+    function drawWeek(due) {
+      const base = weekStart || U.startOfWeek(due ? U.parseDate(due) : new Date(), 1);
+      const today = U.startOfDay(new Date());
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = U.addDays(base, i), k = U.dateKey(d);
+        days.push(h('button', { type: 'button', disabled: d < today, class: 'ta-wday' + (k === due ? ' sel' : '') + (U.sameDay(d, today) ? ' today' : ''), onclick: () => pick({ due: k }) },
+          h('small', null, U.WEEKDAYS_SHORT[d.getDay()]), h('b', null, d.getDate())));
+      }
+      const shift = (n) => { weekStart = U.addDays(base, n); draw(); };
+      weekEl.replaceChildren(h('button', { type: 'button', class: 'ta-nav', title: 'Woche zurück', onclick: () => shift(-7) }, '‹'), ...days,
+        h('button', { type: 'button', class: 'ta-nav', title: 'Woche vor', onclick: () => shift(7) }, '›'));
+    }
+
+    function drawExtra(c) {
+      extraEl.hidden = !extra;
+      if (!extra) return;
+      const S = Store.state;
+      let body;
+      if (extra === 'time') {
+        const t = h('input', { type: 'time', value: c.time || '' });
+        t.addEventListener('change', () => pick({ time: t.value || null }));
+        body = [t, h('button', { type: 'button', class: 'pill', onclick: () => { extra = null; pick({ time: null }); } }, 'Keine Uhrzeit')];
+        setTimeout(() => t.focus(), 0);
+      } else if (extra === 'prio') {
+        body = [1, 2, 3, 0].map((p) => chip(p ? PRIO[p].name : 'Keine', c.priority === p, () => { extra = null; pick({ priority: p }); }, { ico: ICO.flag, icoColor: PRIO[p].color }));
+      } else if (extra === 'list') {
+        body = S.todoLists.map((l) => chip(l.name, c.listId === l.id, () => { extra = null; pick({ listId: l.id }); }, { dot: l.color }));
+      } else {
+        const list = Store.todoList(c.listId);
+        body = [Dialogs.colorPicker(c.color, list ? list.color : '#616161', (col) => { picked.color = col; drawChips(current()); }, 'Farbe der Liste').el];
+      }
+      extraEl.replaceChildren(...body);
+    }
+
+    function drawChips(c) {
+      const off = offsetOf(c.due);
+      const preset = WHEN.some(([, n]) => n === off);
+      whenEl.replaceChildren(
+        ...WHEN.map(([lbl, n]) => chip(lbl, c.due && off === n, () => { calMonth = null; weekStart = null; pick({ due: U.dateKey(U.addDays(new Date(), n)) }); })),
+        chip(c.due && !preset ? U.fmtDateShort(U.parseDate(c.due)) : 'Datum …', (c.due && !preset) || !!calMonth, () => {
+          calMonth = calMonth ? null : U.startOfMonth(c.due ? U.parseDate(c.due) : new Date()); draw();
+        }, { ico: ICO.cal, ghost: !(c.due && !preset), title: 'Tag im Kalender wählen' }),
+        chip('Ohne Datum', !c.due, () => { calMonth = null; pick({ due: null, time: null }); }, { ghost: true }));
+      const list = Store.todoList(c.listId);
+      const tgl = (k) => () => { extra = extra === k ? null : k; draw(); };
+      extrasEl.replaceChildren(
+        chip(c.time || 'Uhrzeit', !!c.time || extra === 'time', tgl('time'), { ico: ICO.clock, ghost: !c.time }),
+        chip(c.priority ? PRIO[c.priority].name : 'Priorität', !!c.priority || extra === 'prio', tgl('prio'), { ico: ICO.flag, icoColor: c.priority ? PRIO[c.priority].color : null, ghost: !c.priority }),
+        list ? chip('# ' + list.name, extra === 'list', tgl('list')) : null,
+        chip('Farbe', extra === 'color', tgl('color'), { dot: c.color || (list ? list.color : '#616161') }));
+      // Zusammenfassung
+      const bits = [c.due ? '📅 ' + U.fmtDateShort(U.parseDate(c.due)) + (c.time ? ' · ' + c.time : '') : 'Ohne Datum'];
+      if (c.priority) bits.push('⚑ ' + PRIO[c.priority].name);
+      if (list && !Store.state.settings.todoListFilter) bits.push('# ' + list.name);
+      sumEl.textContent = bits.join(' · ');
+    }
+
+    function draw() {
+      const c = current();
+      drawChips(c); drawCal(c.due); drawWeek(c.due); drawExtra(c);
+      form.classList.toggle('has-text', !!(input.value.trim() || notesIn.value.trim() || Object.keys(picked).length));
+    }
+
     const grow = () => { notesIn.style.height = 'auto'; notesIn.style.height = Math.min(notesIn.scrollHeight, 180) + 'px'; };
-    const showMore = () => form.classList.toggle('has-text', !!(input.value.trim() || notesIn.value.trim()));
-    notesIn.addEventListener('input', () => { grow(); showMore(); });
-    const resetForm = () => { input.value = ''; notesIn.value = ''; grow(); showMore(); };
+    const showDesc = (on) => { notesIn.hidden = !on; descBtn.hidden = on; };
+    descBtn.addEventListener('click', () => { showDesc(true); notesIn.focus(); });
+    notesIn.addEventListener('input', () => { grow(); form.classList.toggle('has-text', true); });
+    notesIn.addEventListener('blur', () => { if (!notesIn.value.trim()) showDesc(false); });
+
+    // Handy: Eingabe als Blatt von unten
+    let openedAt = 0;
+    const open = () => { if (mobile.matches && !form.classList.contains('open')) { openedAt = Date.now(); form.classList.add('open'); panel.classList.add('adding'); draw(); } };
+    const close = () => { form.classList.remove('open'); panel.classList.remove('adding'); input.blur(); };
+    input.addEventListener('focus', open);
+    // Knöpfe nehmen dem Titel nicht den Fokus, sonst klappt die Karte zu
+    form.addEventListener('mousedown', (e) => { if (e.target.closest('.ta-chip, .ta-day, .ta-wday, .ta-nav, .ta-desc-btn, .pill')) e.preventDefault(); });
+    U.$('#todoAddClose').addEventListener('click', () => { resetForm(); close(); });
+    // Der Tipp, der das Blatt öffnet, landet sonst gleich auf dem Hintergrund und schließt es wieder
+    U.$('#todoAddBackdrop').addEventListener('click', () => { if (Date.now() - openedAt > 400) close(); });
+    form.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); resetForm(); close(); } });
+
+    function resetForm() {
+      input.value = ''; notesIn.value = ''; grow(); showDesc(false);
+      picked = {}; extra = null; calMonth = null; weekStart = null;
+      updateHint(''); draw();
+    }
+
     let busy = false;
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const txt = input.value.trim();
       const desc = notesIn.value.trim();
-      if (!txt || busy) { if (!txt && desc) input.focus(); return; }
+      if (!txt || busy) { if (!txt) input.focus(); return; }
       const S = Store.state;
-      if (AI.enabled() && navigator.onLine) {
+      // KI nur, wenn nichts von Hand gewählt wurde
+      if (AI.enabled() && navigator.onLine && !Object.keys(picked).length) {
         busy = true;
         const hint = U.$('#todoHint');
         hint.textContent = '✨ KI liest deine Eingabe …'; hint.classList.add('live', 'ai-busy');
         input.readOnly = true;
         try {
           const items = await AI.ask(txt);
-          const made = AI.apply(items, S.settings.todoListFilter || S.todoLists[0]?.id, desc);
+          const made = AI.apply(items, defList(), desc);
           if (made.length) {
             resetForm();
-            updateHint('');
+            if (mobile.matches) close();
             App.toast('✨ ' + AI.summary(made), { undo: true });
             return;
           }
@@ -368,32 +519,25 @@ const Todos = (() => {
           busy = false; input.readOnly = false; hint.classList.remove('ai-busy');
         }
       }
-      const p = parseQuick(txt);
-      if (!p.due && S.settings.todoFilter === 'today') p.due = todayKey();
-      if (!p.due && S.settings.todoFilter === 'upcoming') p.due = U.dateKey(U.addDays(new Date(), 1));
-      Store.addTodo({ title: p.title || txt, notes: desc, due: p.due, time: p.time, priority: p.priority, listId: p.listId || S.settings.todoListFilter || S.todoLists[0]?.id });
+      const c = current();
+      const p = parseQuick(txt); // legt neue #Listen jetzt wirklich an
+      const listId = Object.prototype.hasOwnProperty.call(picked, 'listId') ? picked.listId : (p.listId || defList());
+      Store.addTodo({ title: p.title || txt, notes: desc, due: c.due, time: c.due ? c.time : null, priority: c.priority, listId, color: c.color });
       resetForm();
-      updateHint('');
+      if (mobile.matches) { close(); App.toast('Aufgabe hinzugefügt'); } else input.focus();
     });
+
     const updateHint = (v) => {
       const hint = U.$('#todoHint');
       if (!v.trim()) { hint.textContent = AI.enabled() ? '✨ KI an: schreib einfach, was zu tun ist und wann' : 'Tipp: „Zahnarzt anrufen morgen 14:00 !1 #Privat“'; hint.classList.remove('live'); return; }
-      if (AI.enabled()) { hint.textContent = '✨ Enter: KI erkennt Aufgabe, Tag und Uhrzeit'; hint.classList.add('live'); return; }
-      const p = parseQuick(v);
-      const bits = [];
-      if (p.due) bits.push('📅 ' + U.relDay(U.parseDate(p.due)) + (p.time ? ' ' + p.time : ''));
-      if (p.priority) bits.push('⚑ ' + PRIO[p.priority].name);
-      if (p.listId) bits.push('# ' + Store.todoList(p.listId).name);
-      hint.textContent = bits.length ? 'Erkannt: ' + bits.join(' · ') : 'Enter zum Hinzufügen';
-      hint.classList.add('live');
+      if (AI.enabled() && !Object.keys(picked).length) { hint.textContent = '✨ Enter: KI erkennt Aufgabe, Tag und Uhrzeit'; hint.classList.add('live'); return; }
+      hint.textContent = ''; hint.classList.remove('live');
     };
+    input.addEventListener('input', () => { updateHint(previewText()); draw(); });
+    // Filter oder Listen geändert: Standardwerte neu zeigen
+    Store.subscribe((kind) => { if ((kind === 'settings' || kind === 'todos') && !extraEl.contains(document.activeElement)) draw(); });
     updateHint('');
-    // Vorschau ohne Listen anzulegen
-    input.addEventListener('input', () => {
-      const v = input.value.replace(/#([\wäöüÄÖÜß-]+)/g, (m, name) => Store.state.todoLists.some((l) => l.name.toLowerCase().startsWith(name.toLowerCase())) ? m : '');
-      updateHint(v);
-      showMore();
-    });
+    draw();
   }
 
   return { render, renderProgress, bind, toggle, parseQuick, progress };
