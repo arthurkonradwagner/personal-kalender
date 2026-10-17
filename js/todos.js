@@ -15,17 +15,9 @@ const Todos = (() => {
     const S = Store.state;
     const tk = todayKey();
     const tasks = S.todos.filter((t) => (t.due && t.due === tk) || (t.due && t.due < tk && !t.done) || isDoneToday(t));
+    // nur Aufgaben zählen, keine Termine
     const tDone = tasks.filter((t) => t.done).length;
-    let evTotal = 0, evDone = 0;
-    if (S.settings.progressCountsEvents) {
-      const now = new Date();
-      const from = U.startOfDay(now);
-      const occ = Views.occurrences(from, U.addDays(from, 1), { noExtras: true }).filter((o) => !o.allDay && o.cal.type !== 'birthday' && U.sameDay(o.start, now));
-      evTotal = occ.length;
-      evDone = occ.filter((o) => o.end <= now).length;
-    }
-    const total = tasks.length + evTotal, done = tDone + evDone;
-    return { total, done, pct: total ? Math.round((done / total) * 100) : null, tTotal: tasks.length, tDone, evTotal, evDone };
+    return { total: tasks.length, done: tDone, pct: tasks.length ? Math.round((tDone / tasks.length) * 100) : null, tTotal: tasks.length, tDone };
   }
 
   function renderProgress() {
@@ -36,9 +28,7 @@ const Todos = (() => {
     ring.style.strokeDashoffset = `${C * (1 - (p.pct ?? 0) / 100)}`;
     ring.classList.toggle('full', p.pct === 100);
     U.$('#progressPct').textContent = p.pct == null ? '–' : p.pct;
-    const parts = [`${p.tDone}/${p.tTotal} Aufgaben`];
-    if (Store.state.settings.progressCountsEvents) parts.push(`${p.evDone}/${p.evTotal} Termine`);
-    U.$('#progressSub').textContent = parts.join(' · ');
+    U.$('#progressSub').textContent = `${p.tDone}/${p.tTotal} Aufgaben`;
     let msg;
     if (p.pct == null) msg = 'Heute ist noch nichts geplant.';
     else if (p.pct === 100) msg = 'Alles erledigt – stark! 🎉';
