@@ -38,6 +38,21 @@ const Views = (() => {
     };
   }
 
+  // ---------- Prüfungen in Abos erkennen ----------
+  const EXAM_BG = '#f6d3cf';
+  let examCache = { words: null, re: null };
+  function examRe() {
+    const words = Store.state.settings.examWords || '';
+    if (examCache.words !== words) {
+      const list = words.split(',').map((w) => w.trim()).filter(Boolean).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      // Wortanfang reicht: „Prüfung“ trifft auch „Prüfungstermin“
+      examCache = { words, re: list.length ? new RegExp('(^|[^\\p{L}])(' + list.join('|') + ')', 'iu') : null };
+    }
+    return examCache.re;
+  }
+  const isExam = (ev, cal) => cal.type === 'subscription' && !!examRe()?.test([ev.title, ev.categories, ev.notes].join('\n'));
+  const examBadge = (o) => (o.exam ? h('span', { class: 'exam-badge' }, 'Prüfung') : null);
+
   // ---------- Daten für einen Zeitraum ----------
   function occurrences(from, to, opts = {}) {
     const S = Store.state;
@@ -46,6 +61,7 @@ const Views = (() => {
     for (const ev of S.events) {
       const cal = calMap[ev.calId];
       if (!cal || (!cal.visible && !opts.includeHidden)) continue;
+      const exam = isExam(ev, cal);
       for (const o of Recur.expand(ev, from, to)) {
         let title = ev.title || '(Ohne Titel)';
         if (cal.type === 'birthday') {
@@ -57,7 +73,7 @@ const Views = (() => {
         }
         out.push({
           kind: 'event', id: ev.id, ev, cal, start: o.start, end: o.end, idx: o.idx, readonly: cal.type === 'subscription',
-          allDay: !!ev.allDay, title, color: ev.color || cal.color, recurring: !!(ev.rrule && ev.rrule.freq),
+          allDay: !!ev.allDay, title, exam, color: exam ? EXAM_BG : ev.color || cal.color, recurring: !!(ev.rrule && ev.rrule.freq),
           key: ev.id + '|' + U.dateKey(o.start),
         });
       }
@@ -176,7 +192,9 @@ const Views = (() => {
         cell.append(num);
         const list = h('div', { class: 'month-items' });
         const visible = items.length > maxItems ? maxItems - 1 : items.length;
-        items.slice(0, visible).forEach(({ o, first, last }) => list.append(monthChip(o, first, last, d)));
+        // Bei Platzmangel Prüfungen nie unter „+ weitere“ verstecken
+        const shown = new Set([...items].sort((a, b) => !!b.o.exam - !!a.o.exam).slice(0, visible));
+        items.filter((x) => shown.has(x)).forEach(({ o, first, last }) => list.append(monthChip(o, first, last, d)));
         if (items.length > visible) {
           const more = h('button', { class: 'more-link' }, `+${items.length - visible} weitere`);
           more.addEventListener('click', (e) => { e.stopPropagation(); showDayList(d, items.map((x) => x.o), more); });
@@ -218,15 +236,15 @@ const Views = (() => {
       el = h('div', { class: 'chip chip-todo' + (o.done ? ' done' : ''), style: { '--c': o.color }, title: o.title },
         h('span', { class: 'todo-box' }, o.done ? '✓' : ''), h('span', { class: 'chip-title' }, o.title));
     } else if (o.allDay || !U.sameDay(o.start, new Date(o.end - 1))) {
-      el = h('div', { class: 'chip chip-fill' + (first ? '' : ' cont-l') + (last ? '' : ' cont-r') + (o.kind === 'holiday' ? ' holiday' : ''),
+      el = h('div', { class: 'chip chip-fill' + (first ? '' : ' cont-l') + (last ? '' : ' cont-r') + (o.kind === 'holiday' ? ' holiday' : '') + (o.exam ? ' exam' : ''),
         style: chipStyle(o.color, past && o.kind !== 'holiday'), title: o.title },
       !o.allDay && first ? h('span', { class: 'chip-time' }, U.fmtTime(o.start)) : null,
-      h('span', { class: 'chip-title' }, o.title));
+      h('span', { class: 'chip-title' }, o.title), examBadge(o));
     } else {
-      el = h('div', { class: 'chip chip-dot' + (past ? ' past' : ''), title: `${U.fmtTime(o.start)} ${o.title}` },
+      el = h('div', { class: 'chip chip-dot' + (past ? ' past' : '') + (o.exam ? ' exam' : ''), title: `${U.fmtTime(o.start)} ${o.title}` },
         h('span', { class: 'dot', style: { background: o.color } }),
         h('span', { class: 'chip-time' }, U.fmtTime(o.start)),
-        h('span', { class: 'chip-title' }, o.title));
+        h('span', { class: 'chip-title' }, o.title), examBadge(o));
     }
     el.addEventListener('click', (e) => { e.stopPropagation(); clickOcc(o, el); });
     if (!o.readonly) {
@@ -525,9 +543,9 @@ const Views = (() => {
         el = h('div', { class: 'chip chip-todo ad-item' + (o.done ? ' done' : ''), style: { '--c': o.color } },
           h('span', { class: 'todo-box' }, o.done ? '✓' : ''), h('span', { class: 'chip-title' }, o.title));
       } else {
-        el = h('div', { class: 'chip chip-fill ad-item' + (contL ? ' cont-l' : '') + (contR ? ' cont-r' : '') + (o.kind === 'holiday' ? ' holiday' : ''),
+        el = h('div', { class: 'chip chip-fill ad-item' + (contL ? ' cont-l' : '') + (contR ? ' cont-r' : '') + (o.kind === 'holiday' ? ' holiday' : '') + (o.exam ? ' exam' : ''),
           style: chipStyle(o.color, o.end < today && o.kind !== 'holiday') },
-        !o.allDay ? h('span', { class: 'chip-time' }, U.fmtTime(o.start)) : null, h('span', { class: 'chip-title' }, o.title));
+        !o.allDay ? h('span', { class: 'chip-time' }, U.fmtTime(o.start)) : null, h('span', { class: 'chip-title' }, o.title), examBadge(o));
       }
       Object.assign(el.style, { left: `calc(${(sIdx / nDays) * 100}% + 2px)`, width: `calc(${((eIdx - sIdx + 1) / nDays) * 100}% - 4px)`, top: `${lane * 24 + 2}px` });
       el.title = o.title;
@@ -608,7 +626,7 @@ const Views = (() => {
     const past = o.end < new Date();
     const short = height < 36;
     const el = h('div', {
-      class: 'tg-event' + (short ? ' short' : '') + (past ? ' past' : ''),
+      class: 'tg-event' + (short ? ' short' : '') + (past ? ' past' : '') + (o.exam ? ' exam' : ''),
       style: {
         top: `${top}px`, height: `${height}px`,
         left: `calc(${it.col * w}% + 1px)`, width: `calc(${w * it.span}% - ${it.col + it.span < it.cols ? 4 : 6}px)`,
@@ -619,7 +637,7 @@ const Views = (() => {
     const timeTxt = `${U.fmtTime(o.start)} – ${U.fmtTime(o.end)}`;
     if (short) el.append(h('div', { class: 'ev-line' }, h('b', null, o.title), ', ', U.fmtTime(o.start)));
     else {
-      el.append(h('div', { class: 'ev-title' }, o.title), h('div', { class: 'ev-time' }, timeTxt));
+      el.append(h('div', { class: 'ev-title' }, o.title, examBadge(o)), h('div', { class: 'ev-time' }, timeTxt));
       if (o.ev.location && height > 54) el.append(h('div', { class: 'ev-loc' }, o.ev.location));
     }
     if (o.recurring) el.append(h('span', { class: 'ev-rec', title: 'Wiederholt sich' }, '↻'));
@@ -937,10 +955,10 @@ const Views = (() => {
       const items = h('div', { class: 'agenda-items' });
       for (const o of list) {
         const time = o.allDay ? 'Ganztägig' : `${U.fmtTime(o.start)} – ${U.fmtTime(o.end)}`;
-        const it = h('div', { class: 'agenda-item' + (o.end < today ? ' past' : '') + (o.kind === 'todo' && o.done ? ' done' : '') },
+        const it = h('div', { class: 'agenda-item' + (o.end < today ? ' past' : '') + (o.kind === 'todo' && o.done ? ' done' : '') + (o.exam ? ' exam' : '') },
           o.kind === 'todo' ? h('span', { class: 'todo-box small', style: { '--c': o.color } }, o.done ? '✓' : '') : h('span', { class: 'dot', style: { background: o.color } }),
           h('span', { class: 'ai-time' }, o.kind === 'todo' ? 'Aufgabe' : time),
-          h('span', { class: 'ai-title' }, o.title),
+          h('span', { class: 'ai-title' }, o.title, examBadge(o)),
           o.ev && o.ev.location ? h('span', { class: 'ai-loc' }, '📍 ' + o.ev.location) : null);
         it.addEventListener('click', () => clickOcc(o, it));
         items.append(it);

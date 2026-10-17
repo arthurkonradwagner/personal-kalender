@@ -44,6 +44,7 @@ const Store = (() => {
         holidays: true, holidayState: 'ALL', showTodosInCalendar: true,
         progressCountsEvents: true, defaultDuration: 60, dayStartHour: 7, aiProvider: '', aiKey: '', phoneTodoMode: 'compact', soundDone: true,
         todoFilter: 'today', todoListFilter: null, sidebarOpen: true, todoOpen: true,
+        examWords: 'Prüfung, Klausur, Exam',
       },
     };
   }

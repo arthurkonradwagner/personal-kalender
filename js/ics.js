@@ -104,7 +104,7 @@ const ICS = (() => {
       const ev = {
         id: U.uid(), calId, title: unescTxt(P.SUMMARY?.value || '(Ohne Titel)'), allDay,
         start: allDay ? U.dateKey(st.d) : U.dtKey(st.d), end: allDay ? U.dateKey(endDate) : U.dtKey(endDate),
-        location: unescTxt(P.LOCATION?.value || ''), notes: unescTxt(P.DESCRIPTION?.value || ''),
+        location: unescTxt(P.LOCATION?.value || ''), notes: unescTxt(P.DESCRIPTION?.value || ''), categories: unescTxt(P.CATEGORIES?.value || ''),
         color: /^#[0-9a-f]{6}$/i.test(P['X-PK-COLOR']?.value || '') ? P['X-PK-COLOR'].value : null,
         rrule: null, exdates: c.ex, reminder: null,
       };

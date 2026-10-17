@@ -110,6 +110,7 @@ const Subs = (() => {
       const name = h('input', { placeholder: 'Name, z. B. BOKU', value: subs.length ? '' : 'BOKU' });
       const url = h('input', { placeholder: 'iCal-Link einfügen (https://… oder webcal://…)', spellcheck: false });
       const msg = h('small', { class: 'ai-msg' });
+      const exam = h('input', { value: Store.state.settings.examWords || '', spellcheck: false, onchange: () => Store.setSetting('examWords', exam.value) });
       const addBtn = h('button', { type: 'button', class: 'btn btn-primary small', onclick: async () => {
         if (!/^(https?|webcals?):\/\//i.test(url.value.trim())) { msg.textContent = 'Bitte einen gültigen Link einfügen.'; return; }
         addBtn.disabled = true; msg.textContent = 'Lade Kalender …';
@@ -129,7 +130,8 @@ const Subs = (() => {
             h('button', { type: 'button', class: 'btn btn-outline small', onclick: async () => { await refresh(c, { force: true, toast: true }); draw(); } }, 'Aktualisieren'),
             h('button', { type: 'button', class: 'btn btn-danger-ghost small', onclick: async () => { await remove(c); draw(); } }, 'Entfernen')))),
         h('div', { class: 'sub-add' }, name, url, addBtn),
-        msg);
+        msg,
+        h('label', { class: 'set-row' }, h('span', null, 'Prüfungen erkennen an', h('small', null, 'Wörter mit Komma getrennt, gesucht in Titel, Kategorie und Beschreibung')), exam));
     };
     draw();
     return box;

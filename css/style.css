@@ -812,3 +812,15 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
   .ta-submit { justify-content: center; padding: 12px; font-size: 15px; border-radius: 12px; }
   .ta-submit kbd { display: none; }
 }
+
+/* ---------- Prüfungen aus Abos (Stil D: Cremerot, gestrichelt, leuchtend, Schild) ---------- */
+.tg-event.exam, .chip-fill.exam, .chip-dot.exam, .agenda-item.exam,
+:root[data-theme="dark"] .tg-event.exam, :root[data-theme="dark"] .chip-fill.exam {
+  background: #f6d3cf !important; color: #7a1f17 !important;
+  border: 1.5px dashed #c8382c; box-shadow: 0 0 12px rgba(224, 89, 75, .35) !important;
+}
+:root[data-theme="dark"] .tg-event.exam .ev-title, .chip-dot.exam .chip-time { color: #7a1f17; }
+.chip-dot.exam .dot { display: none; }
+.agenda-item.exam .ai-loc, .agenda-item.exam .ai-time { color: #7a1f17; }
+.exam-badge { display: inline-block; margin-left: 5px; padding: 0 4px; border-radius: 3px; background: #c8382c; color: #fff;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 14px; vertical-align: 1px; }
