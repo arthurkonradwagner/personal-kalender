@@ -473,8 +473,25 @@ const App = (() => {
     });
 
     // Mausrad-Navigation im Monat/Jahr mit Shift
+    // Touchpad (PC): zwei Finger waagrecht – nach rechts = vor, nach links = zurück; ein Schritt pro Geste
+    let tpX = 0, tpLock = false, tpTimer = 0;
+    const scrollsX = (el) => {
+      for (; el && el !== vc; el = el.parentElement) {
+        const ox = getComputedStyle(el).overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return true;
+      }
+      return false;
+    };
     U.$('#viewContainer').addEventListener('wheel', (e) => {
-      if ((view === 'month' || view === 'year') && e.shiftKey && Math.abs(e.deltaY) > 20) { e.preventDefault(); step(e.deltaY > 0 ? 1 : -1); }
+      if ((view === 'month' || view === 'year') && e.shiftKey && Math.abs(e.deltaY) > 20) { e.preventDefault(); step(e.deltaY > 0 ? 1 : -1); return; }
+      if (e.shiftKey || e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY) || query || view === 'agenda' || swAnim || scrollsX(e.target)) return;
+      e.preventDefault(); // sonst blättert der Browser evtl. eine Seite zurück
+      clearTimeout(tpTimer);
+      tpTimer = setTimeout(() => { tpX = 0; tpLock = false; }, 250); // Geste (samt Nachschwung) ist vorbei
+      if (tpLock) return;
+      tpX += e.deltaX;
+      // Finger nach rechts liefern negatives deltaX (Standard-Scrollrichtung an Windows und Mac)
+      if (Math.abs(tpX) > 60) { tpLock = true; step(tpX < 0 ? 1 : -1); }
     }, { passive: false });
 
     let lastH = window.innerHeight;
