@@ -354,30 +354,39 @@ const Dialogs = (() => {
 
   // ---------- Schnellfenster „Aufgabe hinzufügen“ für einen Tag ----------
   // Farbe: null = Farbe der Liste (wie bisher), sonst eigene Farbe nur für diese Aufgabe.
-  function quickTodo(day, onAdded) {
+  // Mit `edit` (bestehende Aufgabe) dient dasselbe Fenster zum Bearbeiten.
+  function quickTodo(day, onAdded, edit) {
     const S = Store.state;
-    const listId = S.settings.todoListFilter || S.todoLists[0]?.id;
+    const listId = edit ? edit.listId : S.settings.todoListFilter || S.todoLists[0]?.id;
     const list = Store.todoList(listId);
-    let color = null;
-    const title = h('input', { placeholder: 'Was ist zu tun?', maxlength: 200, autofocus: true });
-    const notes = h('textarea', { placeholder: 'Beschreibung (optional)', rows: 2 });
-    const picker = colorPicker(null, list ? list.color : '#616161', (c) => { color = c; }, 'Standardfarbe');
+    let color = edit ? edit.color || null : null;
+    const title = h('input', { placeholder: 'Was ist zu tun?', maxlength: 200, autofocus: true, value: edit ? edit.title : '' });
+    const notes = h('textarea', { placeholder: 'Beschreibung (optional)', rows: 2 }, edit ? edit.notes || '' : '');
+    const picker = colorPicker(color, list ? list.color : '#616161', (c) => { color = c; }, 'Standardfarbe');
     const content = h('form', { class: 'simple-form quick-todo' },
-      h('h3', null, 'Aufgabe hinzufügen'),
+      h('h3', null, edit ? 'Aufgabe bearbeiten' : 'Aufgabe hinzufügen'),
       h('small', { class: 'qt-day' }, U.sameDay(day, new Date()) ? 'Heute · ' + U.fmtDateShort(day) : U.fmtDateShort(day)),
       title, notes, h('div', { class: 'lbl' }, 'Farbe'), picker.el,
       h('div', { class: 'ed-actions' },
-        h('button', { type: 'button', class: 'btn btn-ghost small qt-event', title: 'Stattdessen einen ganztägigen Termin anlegen',
+        edit ? null : h('button', { type: 'button', class: 'btn btn-ghost small qt-event', title: 'Stattdessen einen ganztägigen Termin anlegen',
           onclick: () => { Modal.close(); App.openEditor({ allDay: true, start: U.dateKey(day), end: U.dateKey(day) }); } }, 'Ganztägiger Termin'),
         h('span', { class: 'spacer' }),
         h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => Modal.close() }, 'Abbrechen'),
-        h('button', { type: 'submit', class: 'btn btn-primary' }, 'Hinzufügen')));
+        h('button', { type: 'submit', class: 'btn btn-primary' }, edit ? 'Speichern' : 'Hinzufügen')));
     title.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); content.requestSubmit(); } });
     content.addEventListener('submit', (e) => {
       e.preventDefault();
       const txt = title.value.trim();
       if (!txt) { title.focus(); return; }
       const p = Todos.parseQuick(txt);
+      if (edit) {
+        Store.updateTodo(edit.id, { title: p.title || txt, notes: notes.value.trim(), time: p.time || edit.time || null,
+          priority: p.priority || edit.priority || 0, listId: p.listId || edit.listId, color });
+        Modal.close();
+        App.toast('Aufgabe gespeichert');
+        onAdded && onAdded(edit);
+        return;
+      }
       const t = Store.addTodo({ title: p.title || txt, notes: notes.value.trim(), due: U.dateKey(day), time: p.time || null,
         priority: p.priority || 0, listId: p.listId || listId, color });
       Modal.close();

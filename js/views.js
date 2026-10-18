@@ -287,7 +287,13 @@ const Views = (() => {
           h('button', { class: 'ts-check', title: 'Erledigt' }, t.done ? '✓' : ''),
           h('div', { class: 'ts-body' }, h('div', { class: 'ts-title' }, t.title),
             t.notes ? h('div', { class: 'ts-desc' }, t.notes) : null,
-            h('div', { class: 'ts-meta' }, [t.time ? '🕒 ' + t.time : null, l ? l.name : null, t.priority === 1 ? '⚑ Hoch' : null].filter(Boolean).join(' · '))));
+            h('div', { class: 'ts-meta' }, [t.time ? '🕒 ' + t.time : null, l ? l.name : null, t.priority === 1 ? '⚑ Hoch' : null].filter(Boolean).join(' · '))),
+          h('button', { class: 'icon-btn small ts-act ts-edit', title: 'Bearbeiten',
+            onclick: () => Dialogs.quickTodo(d, () => box.replaceChildren(...build()), t) },
+            h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>' })),
+          h('button', { class: 'icon-btn small ts-act ts-del', title: 'Löschen',
+            onclick: () => { Store.removeTodo(t.id); App.toast('Aufgabe gelöscht', { undo: true }); box.replaceChildren(...build()); } },
+            h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>' })));
         row.querySelector('.ts-check').addEventListener('click', () => { App.toggleTodo(t.id); setTimeout(() => box.replaceChildren(...build()), 420); });
         todoDragSource(row, t);
         return row;
@@ -305,7 +311,10 @@ const Views = (() => {
     };
     const box = h('div', { class: 'task-sheet' });
     box.append(...build());
-    Modal.open(box, { width: 520, cls: 'modal-task-sheet' });
+    // Rückgängig (Toast) stellt den ganzen Stand wieder her: Blatt neu aufbauen
+    const onStore = (kind) => { if (kind === 'all') box.replaceChildren(...build()); };
+    Store.subscribe(onStore);
+    Modal.open(box, { width: 520, cls: 'modal-task-sheet', onClose: () => Store.unsubscribe(onStore) });
   }
 
   // ---------- Aufgabe aus dem Aufgabenblatt auf einen anderen Tag ziehen ----------
@@ -314,7 +323,7 @@ const Views = (() => {
   function todoDragSource(row, t) {
     row.addEventListener('contextmenu', (e) => e.preventDefault());
     row.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.ts-check')) return;
+      if (e.button !== 0 || e.target.closest('.ts-check, .ts-act')) return;
       const x0 = e.clientX, y0 = e.clientY, touch = e.pointerType !== 'mouse';
       if (!touch) e.preventDefault(); // kein Text markieren
       let timer = null, drag = null;

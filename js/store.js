@@ -176,6 +176,7 @@ const Store = (() => {
     return canon(merged) !== canon(r);
   }
   const subscribe = (fn) => listeners.add(fn);
+  const unsubscribe = (fn) => listeners.delete(fn);
 
   // Rückgängig: einfacher Snapshot-Stack
   const undoStack = [];
@@ -262,7 +263,7 @@ const Store = (() => {
   load();
   index();
   return {
-    get state() { return state; }, subscribe, emit, save, snapshot, undo, exportForSync, merge, mergeRemote,
+    get state() { return state; }, subscribe, unsubscribe, emit, save, snapshot, undo, exportForSync, merge, mergeRemote,
     calendar, addCalendar, updateCalendar, removeCalendar,
     event, addEvent, updateEvent, removeEvent,
     todo, addTodo, updateTodo, removeTodo, toggleTodo, editedRecently,
