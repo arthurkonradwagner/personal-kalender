@@ -23,20 +23,12 @@ const Todos = (() => {
   function renderProgress() {
     const p = progress();
     const ring = U.$('#ringFg');
-    const C = 2 * Math.PI * 52;
+    const C = 2 * Math.PI * 48;
     ring.style.strokeDasharray = `${C}`;
     ring.style.strokeDashoffset = `${C * (1 - (p.pct ?? 0) / 100)}`;
     ring.classList.toggle('full', p.pct === 100);
     U.$('#progressPct').textContent = p.pct == null ? '–' : p.pct;
-    U.$('#progressSub').textContent = `${p.tDone}/${p.tTotal} Aufgaben`;
-    let msg;
-    if (p.pct == null) msg = 'Heute ist noch nichts geplant.';
-    else if (p.pct === 100) msg = 'Alles erledigt – stark! 🎉';
-    else if (p.pct >= 75) msg = 'Fast geschafft!';
-    else if (p.pct >= 50) msg = 'Über die Hälfte ist erledigt.';
-    else if (p.pct > 0) msg = 'Guter Anfang, weiter so.';
-    else msg = 'Los geht’s!';
-    U.$('#progressMsg').textContent = msg;
+    U.$('#progressSub').textContent = p.pct == null ? 'Heute ist noch nichts geplant' : `${p.tDone} von ${p.tTotal} Aufgaben`;
     if (lastPct != null && lastPct < 100 && p.pct === 100) { celebrate(); if (Sound.recent() || Store.editedRecently()) rocketShow(); }
     lastPct = p.pct;
     document.title = (p.pct != null ? `${p.pct}% · ` : '') + 'Persönlicher Kalender';
@@ -236,7 +228,6 @@ const Todos = (() => {
     const S = Store.state;
     U.$$('#todoTabs button').forEach((b) => b.classList.toggle('active', b.dataset.filter === S.settings.todoFilter));
     const isProj = S.settings.todoFilter === 'projects';
-    U.$('#projTab').classList.toggle('active', isProj);
     const pc = Projects.openCount();
     U.$('#projCount').textContent = pc || '';
     U.$('.todo-panel').classList.toggle('show-projects', isProj);
@@ -265,7 +256,7 @@ const Todos = (() => {
       c.addEventListener('contextmenu', (e) => { e.preventDefault(); Dialogs.editTodoList(l); });
       chips.append(c);
     }
-    const add = h('button', { class: 'list-chip add', title: 'Neue Liste' }, '+ Liste');
+    const add = h('button', { class: 'list-chip add', title: 'Neue Liste' }, '+');
     add.addEventListener('click', () => Dialogs.editTodoList(null));
     chips.append(add);
 
@@ -296,10 +287,9 @@ const Todos = (() => {
     check.addEventListener('click', (e) => { e.stopPropagation(); toggle(t.id, el); });
 
     const meta = h('div', { class: 'todo-meta' });
-    if (t.due) meta.append(h('span', { class: 'tm-due' + (overdue ? ' overdue' : t.due === tk ? ' today' : '') }, '📅 ' + U.relDay(U.parseDate(t.due)) + (t.time ? ' ' + t.time : '')));
+    if (t.due) meta.append(h('span', { class: 'tm-due' + (overdue ? ' overdue' : t.due === tk ? ' today' : '') }, U.relDay(U.parseDate(t.due)) + (t.time ? ' ' + t.time : '')));
     if (list && !Store.state.settings.todoListFilter) meta.append(h('span', { class: 'tm-list' }, h('span', { class: 'dot', style: { background: list.color } }), list.name));
     if (t.subtasks.length) meta.append(h('span', { class: 'tm-sub' }, `☑ ${subDone}/${t.subtasks.length}`));
-    if (t.priority) meta.append(h('span', { class: 'tm-prio', style: { color: PRIO[t.priority].color } }, '⚑ ' + PRIO[t.priority].name));
 
     const main = h('div', { class: 'todo-main' }, h('div', { class: 'todo-title' }, t.title || '(Ohne Titel)'),
       t.notes && expanded !== t.id ? h('div', { class: 'todo-desc' }, t.notes) : null, meta.childNodes.length ? meta : null);
@@ -400,7 +390,6 @@ const Todos = (() => {
 
   function bind() {
     U.$$('#todoTabs button').forEach((b) => b.addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', b.dataset.filter); }));
-    U.$('#projTab').addEventListener('click', () => { expanded = null; Store.setSetting('todoFilter', Store.state.settings.todoFilter === 'projects' ? 'today' : 'projects'); });
     bindAdd();
   }
 

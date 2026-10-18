@@ -105,25 +105,27 @@
       <div class="progress-card" id="progressCard">
         <div class="ring-wrap">
           <svg class="ring" viewBox="0 0 120 120">
-            <circle class="ring-bg" cx="60" cy="60" r="52"/>
-            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"/>
+            <defs><linearGradient id="silverGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6f7f9"/><stop offset=".45" stop-color="#9a9da5"/><stop offset=".7" stop-color="#eceef1"/><stop offset="1" stop-color="#8a8d94"/></linearGradient></defs>
+            <circle class="ring-tick" cx="60" cy="60" r="57"/>
+            <circle class="ring-tick major" cx="60" cy="60" r="56.5"/>
+            <circle class="ring-bg" cx="60" cy="60" r="48"/>
+            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="48"/>
           </svg>
           <div class="ring-label"><span id="progressPct">0</span><small>%</small></div>
         </div>
         <div class="progress-text">
           <div class="progress-title">Heute erledigt</div>
           <div class="progress-sub" id="progressSub"></div>
-          <div class="progress-msg" id="progressMsg"></div>
         </div>
       </div>
 
       <div class="todo-head">
-        <button class="proj-tab" id="projTab" type="button"><span class="pt-ico">◆</span><span class="pt-txt"><b>Projekte</b><small>Große Vorhaben ohne festen Tag</small></span><span class="pt-cnt" id="projCount"></span></button>
         <div class="todo-tabs" id="todoTabs">
           <button data-filter="today">Heute</button>
           <button data-filter="upcoming">Geplant</button>
           <button data-filter="all">Alle</button>
           <button data-filter="done">Erledigt</button>
+          <button data-filter="projects" class="tab-proj" title="Projekte: große Vorhaben ohne festen Tag">◆ <span id="projCount"></span></button>
         </div>
       </div>
       <div class="todo-lists" id="todoListChips"></div>
