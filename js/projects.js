@@ -77,7 +77,7 @@ const Projects = (() => {
     const steps = h('div', { class: 'prj-steps' });
     for (const s of p.steps) {
       const cb = h('input', { type: 'checkbox', checked: s.done });
-      cb.addEventListener('change', () => { s.done = cb.checked; save(); });
+      cb.addEventListener('change', () => { if (cb.checked) Sound.done(cb); s.done = cb.checked; save(); });
       const x = h('button', { class: 'icon-btn small', title: 'Entfernen' }, '✕');
       x.addEventListener('click', () => { p.steps = p.steps.filter((y) => y !== s); save(); });
       steps.append(h('label', { class: 'prj-step' + (s.done ? ' done' : '') }, cb, h('span', null, s.title), x));
@@ -98,7 +98,7 @@ const Projects = (() => {
       h('div', { class: 'prj-row' }, h('span', null, 'Zeitraum'), horizonSelect(p.horizon, (v) => update(p.id, { horizon: v }))),
       notes, colors,
       h('div', { class: 'prj-actions' },
-        h('button', { class: 'btn ' + (p.done ? 'btn-outline' : 'btn-primary') + ' small', onclick: () => { if (!p.done) Sound.cash(); update(p.id, { done: !p.done, doneAt: p.done ? null : Date.now() }); } }, p.done ? 'Wieder öffnen' : '✓ Projekt abschließen'),
+        h('button', { class: 'btn ' + (p.done ? 'btn-outline' : 'btn-primary') + ' small', onclick: (e) => { if (!p.done) Sound.done(e.currentTarget); update(p.id, { done: !p.done, doneAt: p.done ? null : Date.now() }); } }, p.done ? 'Wieder öffnen' : '✓ Projekt abschließen'),
         h('button', { class: 'btn btn-danger-ghost small', onclick: () => { open = null; remove(p.id); } }, 'Löschen')));
     return d;
   }

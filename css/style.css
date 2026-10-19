@@ -824,3 +824,7 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .agenda-item.exam .ai-loc, .agenda-item.exam .ai-time { color: #7a1f17; }
 .exam-badge { display: inline-block; margin-left: 5px; padding: 0 4px; border-radius: 3px; background: #c8382c; color: #fff;
   font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; line-height: 14px; vertical-align: 1px; }
+
+/* Silber-Splash beim Abhaken (js/sound.js) */
+.done-splash { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 9999; }
+.done-splash i { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--silver); box-shadow: 0 0 4px rgba(230, 232, 236, .7); }

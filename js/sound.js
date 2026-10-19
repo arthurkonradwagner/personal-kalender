@@ -1,4 +1,4 @@
-/* Ka-Ching: kleiner Kassen-Sound beim Erledigen einer Aufgabe, direkt im Browser erzeugt (keine Datei nötig) */
+/* Erledigt-Feedback: am PC ein leiser Mausklick (WebAudio, keine Datei), überall ein kleiner Silber-Splash am Haken */
 'use strict';
 
 const Sound = (() => {
@@ -19,30 +19,37 @@ const Sound = (() => {
     src.connect(f); f.connect(g); g.connect(out); src.start(t);
   }
 
-  // Glocke „Ching“: mehrere hohe Teiltöne, die langsam ausklingen
-  function bell(c, out, t, base, vol) {
-    [[1, 1, 1.4], [2.01, 0.55, 1.0], [2.76, 0.4, 0.7], [4.07, 0.25, 0.45], [5.4, 0.12, 0.3]].forEach(([r, a, len]) => {
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = 'sine'; o.frequency.value = base * r;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(vol * a, t + 0.005);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-      o.connect(g); g.connect(out); o.start(t); o.stop(t + len + 0.05);
-    });
+  const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+  const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Haken kurz größer werden lassen, dazu feine silberne Funken (am body, damit ein Neuzeichnen sie nicht abschneidet)
+  function splash(el) {
+    if (!el || !el.isConnected || calmMotion.matches) return;
+    el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+    const r = el.getBoundingClientRect();
+    const box = document.createElement('div');
+    box.className = 'done-splash';
+    box.style.left = r.left + r.width / 2 + 'px';
+    box.style.top = r.top + r.height / 2 + 'px';
+    for (let i = 0; i < 8; i++) {
+      const dot = document.createElement('i'), a = i / 8 * Math.PI * 2, d = 12 + Math.random() * 6;
+      box.append(dot);
+      dot.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px) scale(.3)`, opacity: 0 }], { duration: 420, easing: 'cubic-bezier(.2,.7,.3,1)' });
+    }
+    document.body.append(box);
+    setTimeout(() => box.remove(), 450);
   }
 
   let lastCash = 0;
-  function cash() {
+  function done(el) {
     lastCash = Date.now();
-    if (Store.state.settings.soundDone === false) return;
+    splash(el);
+    if (Store.state.settings.soundDone === false || !finePointer.matches) return; // am Handy kein Ton
     try {
-      const c = audio(), t = c.currentTime + 0.02;
-      const out = c.createGain(); out.gain.value = 0.9; out.connect(c.destination);
-      noise(c, out, t, 0.07, 2500, 1.2, 0.5);           // „Ka“
-      noise(c, out, t + 0.05, 0.05, 5000, 2, 0.3);
-      bell(c, out, t + 0.09, 1975, 0.22);               // „Ching“
-      bell(c, out, t + 0.11, 2637, 0.12);
-      for (let i = 0; i < 6; i++) noise(c, out, t + 0.14 + i * 0.045 + Math.random() * 0.02, 0.025, 6000 + Math.random() * 3000, 8, 0.25 - i * 0.03); // Münzen
+      const c = audio(), t = c.currentTime + 0.01;
+      const out = c.createGain(); out.gain.value = 0.12; out.connect(c.destination);
+      noise(c, out, t, 0.012, 3200, 1.5, 0.6);          // kurzer, leiser Klick
+      noise(c, out, t + 0.03, 0.008, 2400, 1.5, 0.3);   // leises Loslassen
     } catch (e) { /* ohne Ton weiter */ }
   }
 
@@ -74,5 +81,5 @@ const Sound = (() => {
   // true, wenn der Nutzer gerade selbst etwas abgehakt hat (nicht durch Sync oder Zeitablauf)
   const recent = () => Date.now() - lastCash < 4000;
 
-  return { cash, rocket, recent };
+  return { done, rocket, recent };
 })();

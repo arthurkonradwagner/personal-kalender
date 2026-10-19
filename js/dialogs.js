@@ -448,7 +448,7 @@ const Dialogs = (() => {
       row('Feiertage anzeigen', chk('holidays')),
       row('Bundesland', sel('holidayState', Object.entries(Holidays.STATES))),
       row('Aufgaben mit Datum im Kalender zeigen', chk('showTodosInCalendar')),
-      row('Ka-Ching-Ton beim Erledigen', chk('soundDone')),
+      row('Klick-Ton beim Erledigen (PC)', chk('soundDone')),
       Subs.settingsSection(),
       h('h4', null, 'Daten'),
       h('p', { class: 'muted' }, 'Alle Daten liegen nur hier im Browser (localStorage). Mach ab und zu eine Sicherung.'),
