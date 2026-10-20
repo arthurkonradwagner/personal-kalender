@@ -711,6 +711,7 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .ts-list { overflow: auto; display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px; }
 .ts-item { display: flex; gap: 12px; align-items: flex-start; padding: 11px 12px; border-radius: 12px; background: color-mix(in srgb, var(--c) 14%, var(--surface-2)); box-shadow: inset 3px 0 0 var(--c); }
 .ts-item.done { opacity: .5; }
+.ts-item.ts-moving { position: relative; z-index: 1; }
 .ts-item.done .ts-title { text-decoration: line-through; }
 .ts-check { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--c); background: transparent; display: grid; place-items: center; font-size: 13px; color: var(--on-accent, #fff); padding: 0; }
 .ts-item.done .ts-check { background: var(--c); }

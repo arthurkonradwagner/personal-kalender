@@ -283,18 +283,18 @@ const Views = (() => {
       const open = list.filter((t) => !t.done).length;
       const rows = list.map((t) => {
         const l = Store.todoList(t.listId);
-        const row = h('div', { class: 'ts-item' + (t.done ? ' done' : ''), style: { '--c': t.color || (l ? l.color : 'var(--accent)') } },
+        const row = h('div', { class: 'ts-item' + (t.done ? ' done' : ''), dataset: { id: t.id }, style: { '--c': t.color || (l ? l.color : 'var(--accent)') } },
           h('button', { class: 'ts-check', title: 'Erledigt' }, t.done ? '✓' : ''),
           h('div', { class: 'ts-body' }, h('div', { class: 'ts-title' }, t.title),
             t.notes ? h('div', { class: 'ts-desc' }, t.notes) : null,
             h('div', { class: 'ts-meta' }, [t.time ? '🕒 ' + t.time : null, l ? l.name : null, t.priority === 1 ? '⚑ Hoch' : null].filter(Boolean).join(' · '))),
           h('button', { class: 'icon-btn small ts-act ts-edit', title: 'Bearbeiten',
-            onclick: () => Dialogs.quickTodo(d, () => box.replaceChildren(...build()), t) },
+            onclick: () => Dialogs.quickTodo(d, rebuild, t) },
             h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>' })),
           h('button', { class: 'icon-btn small ts-act ts-del', title: 'Löschen',
-            onclick: () => { Store.removeTodo(t.id); App.toast('Aufgabe gelöscht', { undo: true }); box.replaceChildren(...build()); } },
+            onclick: () => { Store.removeTodo(t.id); App.toast('Aufgabe gelöscht', { undo: true }); rebuild(); } },
             h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>' })));
-        row.querySelector('.ts-check').addEventListener('click', (e) => { App.toggleTodo(t.id, e.currentTarget); setTimeout(() => box.replaceChildren(...build()), 420); });
+        row.querySelector('.ts-check').addEventListener('click', (e) => { App.toggleTodo(t.id, e.currentTarget); setTimeout(rebuild, 260); });
         todoDragSource(row, t);
         return row;
       });
@@ -304,15 +304,32 @@ const Views = (() => {
           h('div', null, h('h3', null, U.sameDay(d, new Date()) ? 'Aufgaben heute' : `Aufgaben am ${U.WEEKDAYS[d.getDay()]}`),
             h('small', null, `${U.fmtDateShort(d)} · ${open} offen von ${list.length}`)),
           h('button', { class: 'icon-btn', onclick: () => Modal.close() }, '✕')),
-        h('button', { class: 'ts-add', onclick: () => Dialogs.quickTodo(d, () => box.replaceChildren(...build())) }, '+ Aufgabe hinzufügen'),
+        h('button', { class: 'ts-add', onclick: () => Dialogs.quickTodo(d, rebuild) }, '+ Aufgabe hinzufügen'),
         h('div', { class: 'ts-list' }, ...(rows.length ? rows : [h('p', { class: 'muted' }, 'Keine Aufgaben an diesem Tag.')])),
         rows.length ? h('p', { class: 'ts-hint' }, 'Tipp: Aufgabe länger halten und auf einen anderen Tag ziehen.') : null,
       ];
     };
+    // Neu aufbauen mit FLIP: jede Karte gleitet von ihrem alten Platz (auch mitten in einer laufenden Bewegung) zum neuen
+    const rebuild = () => {
+      const oldList = box.querySelector('.ts-list'), scroll = oldList ? oldList.scrollTop : 0;
+      const before = new Map([...box.querySelectorAll('.ts-item')].map((r) => [r.dataset.id, { top: r.getBoundingClientRect().top, o: getComputedStyle(r).opacity }]));
+      box.replaceChildren(...build());
+      box.querySelector('.ts-list').scrollTop = scroll;
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      for (const r of box.querySelectorAll('.ts-item')) {
+        const b = before.get(r.dataset.id);
+        if (!b) continue;
+        const dy = b.top - r.getBoundingClientRect().top, o = getComputedStyle(r).opacity;
+        if (Math.abs(dy) < 1 && b.o === o) continue;
+        if (dy < 0) r.classList.add('ts-moving'); // nach unten wandernde (erledigte) Karte gleitet über die anderen
+        r.animate([{ transform: `translateY(${dy}px)`, opacity: b.o }, { transform: 'none', opacity: o }], { duration: 480, easing: 'cubic-bezier(.2,.8,.2,1)' })
+          .finished.then(() => r.classList.remove('ts-moving'), () => {});
+      }
+    };
     const box = h('div', { class: 'task-sheet' });
     box.append(...build());
     // Rückgängig (Toast) stellt den ganzen Stand wieder her: Blatt neu aufbauen
-    const onStore = (kind) => { if (kind === 'all') box.replaceChildren(...build()); };
+    const onStore = (kind) => { if (kind === 'all') rebuild(); };
     Store.subscribe(onStore);
     Modal.open(box, { width: 520, cls: 'modal-task-sheet', onClose: () => Store.unsubscribe(onStore) });
   }
