@@ -50,7 +50,13 @@ const Views = (() => {
     }
     return examCache.re;
   }
-  const isExam = (ev, cal) => cal.type === 'subscription' && !!examRe()?.test([ev.title, ev.categories, ev.notes].join('\n'));
+  // „test“ als Wortteil (VO-Test, Abschlusstest, Teiltest …), aber nicht Testament, Protest, Attest, Kontest, latest
+  const TEST_RE = /(?<!pro|at|kon|con|la)test(?!ament)/i;
+  const isExam = (ev, cal) => {
+    if (cal.type !== 'subscription') return false;
+    const text = [ev.title, ev.categories, ev.notes].join('\n');
+    return TEST_RE.test(text) || !!examRe()?.test(text);
+  };
   const examBadge = (o) => (o.exam ? h('span', { class: 'exam-badge' }, 'Prüfung') : null);
 
   // ---------- Daten für einen Zeitraum ----------
