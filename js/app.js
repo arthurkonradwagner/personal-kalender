@@ -190,10 +190,7 @@ const App = (() => {
         Store.addEvent(copy);
       } else {
         const { s, e } = Recur.bounds(ev);
-        const ds = ns - o.start, de = ne - o.end;
-        // Zeitverschiebung über Sommer-/Winterzeit hinweg in lokaler Zeit
-        const shift = (d, ms) => { const dd = Math.round(ms / U.DAY_MS); const rest = ms - dd * U.DAY_MS; return U.addMinutes(U.addDays(d, dd), Math.round(rest / 60000)); };
-        Store.updateEvent(ev.id, toStore(ev, shift(s, ds), shift(e, de)));
+        Store.updateEvent(ev.id, toStore(ev, U.shiftWall(s, o.start, ns), U.shiftWall(e, o.end, ne)));
       }
     } else {
       Store.snapshot();
@@ -213,7 +210,7 @@ const App = (() => {
       if (r.count) r.count = occ.idx;
       else r.until = U.dateKey(U.addDays(occ.start, -1));
       const cut = U.dateKey(occ.start);
-      Store.addEvent({ ...out, exdates: (ev.exdates || []).filter((x) => x >= cut) });
+      Store.addEvent({ ...out, tz: ev.tz, exdates: (ev.exdates || []).filter((x) => x >= cut) });
       Store.emit('events');
     } else {
       // Alle: Verschiebung relativ zum angeklickten Vorkommen auf die Serie übertragen

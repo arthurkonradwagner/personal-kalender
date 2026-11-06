@@ -40,6 +40,18 @@ const U = (() => {
   };
   const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
   const minutesOfDay = (d) => d.getHours() * 60 + d.getMinutes();
+  // Uhrzeit auf dem Zifferblatt, auch am Tag der Zeitumstellung
+  const atMinutes = (day, min) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, min);
+  // d um den Abstand von „from“ nach „to“ verschieben, gerechnet in Tagen und Uhrzeit statt in Millisekunden
+  const shiftWall = (d, from, to) => addMinutes(addDays(d, daysBetween(from, to)), minutesOfDay(to) - minutesOfDay(from));
+
+  // Minuten, die die Zeitzone tz zum Zeitpunkt d vor UTC liegt
+  const tzFormats = new Map();
+  function tzOffset(tz, d) {
+    if (!tzFormats.has(tz)) tzFormats.set(tz, new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }));
+    const p = Object.fromEntries(tzFormats.get(tz).formatToParts(d).map((x) => [x.type, +x.value]));
+    return Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - d.getTime()) / 60000);
+  }
 
   // ISO-Kalenderwoche
   function isoWeek(d) {
@@ -141,7 +153,7 @@ const U = (() => {
   return {
     DAY_MS, MONTHS, MONTHS_SHORT, WEEKDAYS, WEEKDAYS_SHORT, PALETTE,
     pad, dateKey, timeKey, dtKey, parseDate, startOfDay, addDays, addMinutes, addMonths,
-    sameDay, daysBetween, startOfWeek, startOfMonth, minutesOfDay, isoWeek,
+    sameDay, daysBetween, startOfWeek, startOfMonth, minutesOfDay, atMinutes, shiftWall, tzOffset, isoWeek,
     fmtTime, fmtDateLong, fmtDateShort, fmtDateNum, relDay, uid, h, $, $$, esc,
     hexToRgb, textOn, alpha, debounce, download,
   };

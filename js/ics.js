@@ -59,9 +59,21 @@ const ICS = (() => {
     if (!m) return null;
     const allDay = !m[4] || /VALUE=DATE(?!-)/.test(params || '');
     let d;
-    if (m[7]) d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)));
-    else d = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
-    return { d, allDay };
+    let tz = null;
+    if (m[7]) { d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0))); tz = 'UTC'; }
+    else {
+      d = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+      const zone = !allDay && /TZID="?([^";]+)/.exec(params || '');
+      if (zone) {
+        try {
+          const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+          const guess = new Date(wall - U.tzOffset(zone[1], new Date(wall)) * 60000);
+          d = new Date(wall - U.tzOffset(zone[1], guess) * 60000);
+          tz = zone[1];
+        } catch (e) { /* shortcut: unbekannte Namen (z. B. von Outlook) gelten als Ortszeit; bei Bedarf Namensliste ergänzen */ }
+      }
+    }
+    return { d, allDay, tz };
   }
 
   function importText(text, calId) {
@@ -119,6 +131,7 @@ const ICS = (() => {
         const freq = (r.FREQ || '').toLowerCase();
         if (['daily', 'weekly', 'monthly', 'yearly'].includes(freq)) {
           ev.rrule = { freq, interval: +r.INTERVAL || 1, byDay: [], until: null, count: r.COUNT ? +r.COUNT : null };
+          if (st.tz) ev.tz = st.tz; // Serie folgt der Uhr ihrer eigenen Zeitzone
           if (r.BYDAY) {
             if (freq === 'weekly') ev.rrule.byDay = r.BYDAY.split(',').map((d) => DAYS.indexOf(d.slice(-2))).filter((x) => x >= 0);
             if (freq === 'monthly') ev.rrule.monthlyMode = 'weekday';

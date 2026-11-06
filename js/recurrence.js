@@ -44,12 +44,15 @@ const Recur = (() => {
     const until = r.until ? U.addDays(U.parseDate(r.until), 1) : null; // inklusive
     const count = r.count ? r.count | 0 : null;
     const ex = new Set(ev.exdates || []);
-    const hardEnd = until && until < to ? until : to;
+    // Serien aus einer anderen Zeitzone (z. B. UTC) wandern bei unserer Zeitumstellung um eine Stunde mit; die Schleifen laufen darum etwas länger
+    const hardEnd = ev.tz ? U.addDays(until && until < to ? until : to, 1) : (until && until < to ? until : to);
     const lookFrom = new Date(from.getTime() - dur);
     let n = 0; // laufender Index (für „count“)
     let guard = 0;
+    const gap = (d) => U.tzOffset(ev.tz, d) + d.getTimezoneOffset();
 
     const emit = (start) => {
+      if (ev.tz) start = U.addMinutes(start, gap(s) - gap(start));
       if (start < s) return true;
       if (until && start >= until) return false;
       if (count != null && n >= count) return false;

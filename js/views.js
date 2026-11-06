@@ -858,7 +858,7 @@ const Views = (() => {
           // langer Druck ohne Ziehen: Termin mit Standarddauer an dieser Stelle
           const s = d.m0, en = s + (Store.state.settings.defaultDuration || 60);
           const day = days[d.ci0];
-          App.openEditor({ allDay: false, start: U.dtKey(U.addMinutes(day, s)), end: U.dtKey(U.addMinutes(day, en)) }, () => d.ghost && d.ghost.remove());
+          App.openEditor({ allDay: false, start: U.dtKey(U.atMinutes(day, s)), end: U.dtKey(U.atMinutes(day, en)) }, () => d.ghost && d.ghost.remove());
           return;
         }
         const multi = d.moved && d.hi > d.lo;
@@ -868,7 +868,7 @@ const Views = (() => {
           s = Math.floor(d.m0 / 30) * 30;
           en = s + (Store.state.settings.defaultDuration || 60);
         } else { s = d.s; en = d.e; }
-        const sd = U.addMinutes(day, s), ed = U.addMinutes(day, en);
+        const sd = U.atMinutes(day, s), ed = U.atMinutes(day, en);
         // mehrere Tage: ein Termin, der sich täglich bis zum letzten gezogenen Tag wiederholt
         const rrule = multi ? { freq: 'daily', interval: 1, until: U.dateKey(days[d.hi]) } : null;
         const clean = () => { d.ghost && d.ghost.remove(); Object.values(d.extra || {}).forEach((g) => g.remove()); };
@@ -888,7 +888,7 @@ const Views = (() => {
         App.moveOccurrence(d.o, U.addMinutes(U.addDays(d.o.start, d.dd), d.dm), U.addMinutes(U.addDays(d.o.end, d.dd), d.dm));
       } else if (d.mode === 'resize' && d.newEndMin != null) {
         const dayOfEnd = U.startOfDay(new Date(d.o.end - 1));
-        const ne = U.addMinutes(dayOfEnd, d.newEndMin);
+        const ne = U.atMinutes(dayOfEnd, d.newEndMin);
         App.moveOccurrence(d.o, d.o.start, ne);
       }
     };
