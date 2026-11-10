@@ -14,6 +14,7 @@ const Subs = (() => {
     if (own) list.push((u) => own + (own.includes('?') ? '' : '?url=') + encodeURIComponent(u));
     list.push((u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u));
     list.push((u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u));
+    list.push((u) => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u));
     return list;
   };
 
@@ -31,9 +32,10 @@ const Subs = (() => {
         const text = await r.text();
         if (text.includes('BEGIN:VCALENDAR')) return text;
         lastErr = new Error('Kein Kalender unter diesem Link');
-      } catch (e) { lastErr = e; }
+      } catch (e) { lastErr = e.name === 'AbortError' ? new Error('Zeitüberschreitung') : e; }
     }
-    throw lastErr || new Error('Laden fehlgeschlagen');
+    if (!lastErr || lastErr instanceof TypeError) throw new Error('Kein Abrufweg erreichbar (BOKU und die Gratis-Vermittler blockieren). Eigenen Abruf-Dienst unten eintragen.');
+    throw lastErr;
   }
 
   // feste IDs aus der UID, damit sich beim Neuladen nichts doppelt
@@ -62,6 +64,13 @@ const Subs = (() => {
       });
       const c = Store.calendar(cal.id);
       if (!c) return;
+      // Schutz: Ein leerer oder stark geschrumpfter Abruf (Server-/Vermittlerfehler) löscht nie die vorhandenen Termine.
+      if (old.size && !fresh.length) throw new Error('Kalender kam leer an – die bisherigen Termine bleiben erhalten');
+      if (old.size >= 10 && fresh.length < old.size * 0.3) {
+        const ok = toast && await Modal.choose(`„${c.name}“ hat plötzlich viel weniger Termine`, `Vorher ${old.size}, jetzt nur ${fresh.length}. Wahrscheinlich ein Fehler beim Abruf. Trotzdem übernehmen?`, [{ label: 'Übernehmen', value: true, danger: true }]);
+        if (!ok) throw new Error(`Nur ${fresh.length} statt ${old.size} Termine geliefert – die bisherigen Termine bleiben erhalten`);
+      }
+      backup(cal.id, [...old.values()]);
       S.events = S.events.filter((e) => e.calId !== cal.id).concat(fresh);
       c.lastSync = Date.now();
       c.lastError = null;
@@ -75,6 +84,12 @@ const Subs = (() => {
     } finally {
       running.delete(cal.id);
     }
+  }
+
+  // letzte gute Fassung pro Abo im Browser aufheben (falls doch etwas schiefgeht)
+  function backup(calId, evs) {
+    if (!evs.length) return;
+    try { localStorage.setItem('pk-sub-backup-' + calId, JSON.stringify({ at: Date.now(), events: evs })); } catch (e) { /* Speicher voll: egal */ }
   }
 
   const refreshAll = (force) => Store.state.calendars.filter((c) => c.type === 'subscription').forEach((c) => refresh(c, { force }));
@@ -110,6 +125,8 @@ const Subs = (() => {
       const name = h('input', { placeholder: 'Name, z. B. BOKU', value: subs.length ? '' : 'BOKU' });
       const url = h('input', { placeholder: 'iCal-Link einfügen (https://… oder webcal://…)', spellcheck: false });
       const msg = h('small', { class: 'ai-msg' });
+      const proxy = h('input', { value: Store.state.settings.icsProxy || '', placeholder: 'https://script.google.com/macros/s/…/exec', spellcheck: false,
+        onchange: () => { Store.setSetting('icsProxy', proxy.value.trim()); refreshAll(true); } });
       const exam = h('input', { value: Store.state.settings.examWords || '', spellcheck: false, onchange: () => Store.setSetting('examWords', exam.value) });
       const addBtn = h('button', { type: 'button', class: 'btn btn-primary small', onclick: async () => {
         if (!/^(https?|webcals?):\/\//i.test(url.value.trim())) { msg.textContent = 'Bitte einen gültigen Link einfügen.'; return; }
@@ -125,12 +142,13 @@ const Subs = (() => {
         h('p', { class: 'muted small' }, 'Füge den iCal-Link aus BOKUonline ein. Die Termine erscheinen als eigener Kalender und werden automatisch alle 30 Minuten aktualisiert. Sie sind schreibgeschützt, Änderungen machst du in BOKUonline.'),
         ...subs.map((c) => h('div', { class: 'set-row sub-row' },
           h('span', null, h('b', null, h('i', { class: 'sub-dot', style: { background: c.color } }), c.name),
-            h('small', null, c.lastError ? '⚠ ' + c.lastError : `${Store.state.events.filter((e) => e.calId === c.id).length} Termine · aktualisiert ${ago(c.lastSync)}`)),
+            h('small', null, (c.lastError ? '⚠ ' + c.lastError + ' · ' : '') + `${Store.state.events.filter((e) => e.calId === c.id).length} Termine gespeichert · zuletzt geladen ${ago(c.lastSync)}`)),
           h('div', { class: 'ai-key' },
             h('button', { type: 'button', class: 'btn btn-outline small', onclick: async () => { await refresh(c, { force: true, toast: true }); draw(); } }, 'Aktualisieren'),
             h('button', { type: 'button', class: 'btn btn-danger-ghost small', onclick: async () => { await remove(c); draw(); } }, 'Entfernen')))),
         h('div', { class: 'sub-add' }, name, url, addBtn),
         msg,
+        h('label', { class: 'set-row' }, h('span', null, 'Eigener Abruf-Dienst', h('small', null, 'Link deines Google-Skripts. Holt den BOKU-Kalender zuverlässig ab, wenn die Gratis-Vermittler blockieren.')), proxy),
         h('label', { class: 'set-row' }, h('span', null, 'Prüfungen erkennen an', h('small', null, 'Wörter mit Komma getrennt, gesucht in Titel, Kategorie und Beschreibung')), exam));
     };
     draw();
