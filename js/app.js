@@ -133,6 +133,8 @@ const App = (() => {
         h('button', { class: 'icon-btn', title: 'Duplizieren', onclick: () => { hidePopover(); duplicateEvent(o.ev); } }, h('svg', { viewBox: '0 0 24 24', html: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>' })),
         h('button', { class: 'icon-btn', title: 'Löschen', onclick: () => { hidePopover(); deleteOccurrence(o); } }, h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>' })));
     }
+    // Abo-Termine: nur eigene Notiz und Prüfungs-Markierung, gespeichert getrennt vom Abo
+    if (o.kind === 'event' && o.okey) actions.append(h('button', { class: 'icon-btn', title: 'Notiz / Prüfung', onclick: () => overlayEditor(o, p) }, h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/>' })));
     actions.append(h('button', { class: 'icon-btn', title: 'Schließen', onclick: hidePopover }, '✕'));
     p.append(actions);
     p.append(h('div', { class: 'pop-title' }, h('span', { class: 'pop-color', style: { background: o.color } }), h('div', null, h('div', { class: 'pop-name' }, o.title), h('div', { class: 'pop-when' }, fmtWhen(o)))));
@@ -145,10 +147,26 @@ const App = (() => {
       }
       if (ev.reminder != null) p.append(h('div', { class: 'pop-line' }, '🔔 ', ev.reminder === 0 ? 'Zu Beginn' : ev.reminder >= 1440 ? `${ev.reminder / 1440} Tag(e) vorher` : ev.reminder >= 60 ? `${ev.reminder / 60} Std. vorher` : `${ev.reminder} Min. vorher`));
       if (ev.notes) p.append(h('div', { class: 'pop-notes' }, ev.notes));
+      if (o.ov && o.ov.notes) p.append(h('div', { class: 'pop-notes pop-own' }, h('small', null, 'Meine Notiz'), o.ov.notes));
       p.append(h('div', { class: 'pop-line muted' }, h('span', { class: 'dot', style: { background: o.cal.color } }), ' ', o.cal.name));
     }
     p.hidden = false;
     position(p, anchor);
+  }
+  function overlayEditor(o, p) {
+    if (p.querySelector('.pop-edit')) return;
+    const notes = h('textarea', { rows: 3, placeholder: 'Eigene Notiz zu diesem Termin' }, (o.ov && o.ov.notes) || '');
+    const exam = h('input', { type: 'checkbox', checked: !!o.exam });
+    const save = () => {
+      // gleich wie die Erkennung = keine eigene Markierung speichern, dann folgt sie weiter den Prüfungswörtern
+      Store.setOverlay(o.okey, { notes: notes.value.trim(), exam: exam.checked === !!o.autoExam ? null : exam.checked });
+      hidePopover();
+      toast('Gespeichert');
+    };
+    p.append(h('div', { class: 'pop-edit' }, notes,
+      h('label', { class: 'pop-check' }, exam, ' Als Prüfung markieren'),
+      h('div', { class: 'pop-edit-btns' }, h('button', { class: 'btn', onclick: hidePopover }, 'Abbrechen'), h('button', { class: 'btn btn-primary', onclick: save }, 'Speichern'))));
+    notes.focus();
   }
   function showCustomPopover(content, anchor) {
     const p = U.$('#popover');

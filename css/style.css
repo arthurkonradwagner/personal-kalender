@@ -449,6 +449,12 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 .pop-line { display: flex; align-items: center; gap: 6px; padding: 5px 0 5px 30px; color: var(--text-2); }
 .pop-line a { color: var(--accent); }
 .pop-notes { padding: 6px 0 6px 30px; white-space: pre-wrap; color: var(--text); line-height: 1.45; }
+.pop-own small { display: block; color: var(--text-2); font-size: 11px; }
+.pop-edit { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 0 30px; }
+.pop-edit textarea { width: 100%; box-sizing: border-box; resize: vertical; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 8px; outline: none; }
+.pop-edit textarea:focus { border-color: var(--accent); }
+.pop-check { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; }
+.pop-edit-btns { display: flex; justify-content: flex-end; gap: 6px; }
 .ctx-menu { position: fixed; z-index: 210; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); padding: 6px; min-width: 220px; animation: pop .12s ease-out; }
 .ctx-title { font-weight: 700; padding: 6px 10px; font-size: 13px; color: var(--text-2); }
 .ctx-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 10px; border-radius: 8px; }

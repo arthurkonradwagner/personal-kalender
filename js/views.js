@@ -57,6 +57,8 @@ const Views = (() => {
     const text = [ev.title, ev.categories, ev.notes].join('\n');
     return TEST_RE.test(text) || !!examRe()?.test(text);
   };
+  // Schlüssel der eigenen Ergänzung: UID (sonst ID) + Startzeit des einzelnen Termins
+  const overlayKey = (ev, start) => (ev.uid || ev.id) + '|' + U.dtKey(start);
   const examBadge = (o) => (o.exam ? h('span', { class: 'exam-badge' }, 'Prüfung') : null);
 
   // ---------- Daten für einen Zeitraum ----------
@@ -65,12 +67,16 @@ const Views = (() => {
     const out = [];
     const calMap = Object.fromEntries(S.calendars.map((c) => [c.id, c]));
     const dupes = Subs.hiddenIds();
+    const ovs = new Map((S.overlays || []).map((x) => [x.id, x]));
     for (const ev of S.events) {
       const cal = calMap[ev.calId];
       if (!cal || (!cal.visible && !opts.includeHidden)) continue;
       if (dupes.has(ev.id) && !opts.includeHidden) continue;   // Abo-Termin, den es sichtbar schon gibt
-      const exam = isExam(ev, cal);
+      const autoExam = isExam(ev, cal);
       for (const o of Recur.expand(ev, from, to)) {
+        const okey = cal.type === 'subscription' ? overlayKey(ev, o.start) : null;
+        const ov = okey && ovs.get(okey);
+        const exam = ov && ov.exam != null ? ov.exam : autoExam;   // eigene Markierung schlägt die Erkennung
         let title = ev.title || '(Ohne Titel)';
         if (cal.type === 'birthday') {
           title = '🎂 ' + title;
@@ -81,7 +87,7 @@ const Views = (() => {
         }
         out.push({
           kind: 'event', id: ev.id, ev, cal, start: o.start, end: o.end, idx: o.idx, readonly: cal.type === 'subscription',
-          allDay: !!ev.allDay, title, exam, color: exam ? EXAM_BG : ev.color || cal.color, recurring: !!(ev.rrule && ev.rrule.freq),
+          allDay: !!ev.allDay, title, exam, autoExam, okey, ov, color: exam ? EXAM_BG : ev.color || cal.color, recurring: !!(ev.rrule && ev.rrule.freq),
           key: ev.id + '|' + U.dateKey(o.start),
         });
       }

@@ -39,6 +39,7 @@ const Store = (() => {
           subtasks: [{ id: U.uid(), title: 'Familie', done: false }, { id: U.uid(), title: 'Freunde', done: false }] },
       ],
       projects: [],
+      overlays: [],   // eigene Ergänzungen zu Abo-Terminen (Notiz, Prüfung); id = UID|Startzeit
       settings: {
         view: 'week', theme: 'dark', weekStart: 1, showWeekNumbers: true,
         holidays: true, holidayState: 'ALL', showTodosInCalendar: true,
@@ -86,7 +87,7 @@ const Store = (() => {
   // ---------- Sync-Grundlage: jeder Eintrag merkt sich, wann er zuletzt geändert wurde ----------
   // _u = Änderungszeit eines Eintrags, _del = gelöschte Einträge mit Zeitpunkt, _setAt = Änderungszeit der Einstellungen.
   // Beim Abgleich gewinnt pro Eintrag die neuere Version. So kann ein alter Stand nichts Neueres mehr löschen.
-  const COLS = ['calendars', 'events', 'todoLists', 'todos', 'projects'];
+  const COLS = ['calendars', 'events', 'todoLists', 'todos', 'projects', 'overlays'];
   // Einstellungen, die pro Gerät bleiben und nicht synchronisiert werden
   const LOCAL_SETTINGS = ['view', 'sidebarOpen', 'todoOpen', 'todoFilter', 'todoListFilter', 'dayStartHour'];
   const TOMB_DAYS = 120;
@@ -118,7 +119,7 @@ const Store = (() => {
     const s = state;
     return JSON.parse(JSON.stringify({
       version: s.version, calendars: s.calendars, defaultCalendar: s.defaultCalendar, events: s.events,
-      todoLists: s.todoLists, todos: s.todos, projects: s.projects || [], settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
+      todoLists: s.todoLists, todos: s.todos, projects: s.projects || [], overlays: s.overlays || [], settings: syncedSettings(s.settings), _del: s._del || {}, _setAt: s._setAt || 0,
     }));
   }
   // Zwei Stände zusammenführen (a = lokal, b = Server). Nichts geht verloren, pro Eintrag gewinnt der neuere.
@@ -246,6 +247,17 @@ const Store = (() => {
     emit('todos');
   }
 
+  // --- Ergänzungen zu Abo-Terminen: liegen getrennt, das Neuladen eines Abos fasst sie nie an ---
+  const overlay = (id) => (state.overlays || []).find((o) => o.id === id);
+  function setOverlay(id, patch) {
+    state.overlays = (state.overlays || []).filter((o) => o.id !== id);
+    const o = { id, ...patch };
+    if (!o.notes) delete o.notes;
+    if (o.exam == null) delete o.exam;
+    if (Object.keys(o).length > 1) state.overlays.push(o);   // leer = Eintrag weg
+    emit('events');
+  }
+
   function setSetting(k, v) { state.settings[k] = v; emit('settings'); }
 
   function replaceAll(data) {
@@ -265,7 +277,7 @@ const Store = (() => {
   return {
     get state() { return state; }, subscribe, unsubscribe, emit, save, snapshot, undo, exportForSync, merge, mergeRemote,
     calendar, addCalendar, updateCalendar, removeCalendar,
-    event, addEvent, updateEvent, removeEvent,
+    event, addEvent, updateEvent, removeEvent, overlay, setOverlay,
     todo, addTodo, updateTodo, removeTodo, toggleTodo, editedRecently,
     todoList, addTodoList, updateTodoList, removeTodoList,
     setSetting, replaceAll, reset,
