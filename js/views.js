@@ -64,9 +64,11 @@ const Views = (() => {
     const S = Store.state;
     const out = [];
     const calMap = Object.fromEntries(S.calendars.map((c) => [c.id, c]));
+    const dupes = Subs.hiddenIds();
     for (const ev of S.events) {
       const cal = calMap[ev.calId];
       if (!cal || (!cal.visible && !opts.includeHidden)) continue;
+      if (dupes.has(ev.id) && !opts.includeHidden) continue;   // Abo-Termin, den es sichtbar schon gibt
       const exam = isExam(ev, cal);
       for (const o of Recur.expand(ev, from, to)) {
         let title = ev.title || '(Ohne Titel)';
