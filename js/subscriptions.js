@@ -41,9 +41,23 @@ const Subs = (() => {
   // feste IDs aus der UID, damit sich beim Neuladen nichts doppelt
   const idFor = (cal, ev, n) => 'sub-' + cal.id + '-' + (ev.uid ? (ev.uid + (ev.recurId ? '@' + ev.recurId : '')) : ev.start + '-' + n).replace(/[^\w@.-]/g, '').slice(0, 120);
 
+  // Dein eigener Kalender ist der Hauptkalender: Abos ergänzen nur. Ein Abo-Termin, den es schon gibt
+  // (eigene Termine oder ein weiter oben stehendes Abo, z. B. BOKU), wird ausgeblendet, nie überschrieben.
+  const DEDUP = 1;   // erhöhen, wenn sich die Erkennung ändert: alle Abos werden dann sofort neu abgeglichen
+  const keysOf = (e) => [e.uid, e.id + '@personal-kalender',
+    String(e.title || '').trim().toLowerCase().replace(/\s+/g, ' ') + '|' + String(e.start || '').slice(0, 16)].filter(Boolean);
+  function knownKeys(calId) {
+    const S = Store.state, cals = S.calendars, me = cals.findIndex((c) => c.id === calId);
+    const ranks = new Set(cals.filter((c, i) => c.id !== calId && (c.type !== 'subscription' || i < me)).map((c) => c.id));
+    const keys = new Set();
+    for (const e of S.events) if (ranks.has(e.calId)) keysOf(e).forEach((k) => keys.add(k));
+    return keys;
+  }
+  const dropKnown = (evs, keys) => evs.filter((e) => !keysOf(e).some((k) => keys.has(k)));
+
   async function refresh(cal, { force = false, toast = false } = {}) {
     if (!cal || cal.type !== 'subscription' || !cal.url || running.has(cal.id)) return;
-    if (!force && Date.now() - (cal.lastSync || 0) < EVERY_MS) return;
+    if (!force && cal.dedup === DEDUP && Date.now() - (cal.lastSync || 0) < EVERY_MS) return;
     if (!navigator.onLine) return;
     running.add(cal.id);
     try {
@@ -54,28 +68,31 @@ const Subs = (() => {
       const masters = new Map(evs.filter((e) => e.uid && !e.recurId).map((e) => [e.uid, e]));
       for (const e of evs) if (e.recurId && masters.has(e.uid)) masters.get(e.uid).exdates.push(e.recurId);
       const old = new Map(S.events.filter((e) => e.calId === cal.id).map((e) => [e.id, e]));
-      const fresh = evs.map((e, n) => {
+      const all = evs.map((e, n) => {
         const id = idFor(cal, e, n);
-        const { uid, recurId, ...rest } = e;
+        const { recurId, ...rest } = e;
         const ev = { ...rest, id, color: null, reminder: null };
         const prev = old.get(id);
         if (prev && prev._u) ev._u = prev._u;
         return ev;
       });
+      const fresh = dropKnown(all, knownKeys(cal.id));
       const c = Store.calendar(cal.id);
       if (!c) return;
       // Schutz: Ein leerer oder stark geschrumpfter Abruf (Server-/Vermittlerfehler) löscht nie die vorhandenen Termine.
-      if (old.size && !fresh.length) throw new Error('Kalender kam leer an – die bisherigen Termine bleiben erhalten');
-      if (old.size >= 10 && fresh.length < old.size * 0.3) {
-        const ok = toast && await Modal.choose(`„${c.name}“ hat plötzlich viel weniger Termine`, `Vorher ${old.size}, jetzt nur ${fresh.length}. Wahrscheinlich ein Fehler beim Abruf. Trotzdem übernehmen?`, [{ label: 'Übernehmen', value: true, danger: true }]);
-        if (!ok) throw new Error(`Nur ${fresh.length} statt ${old.size} Termine geliefert – die bisherigen Termine bleiben erhalten`);
+      if (old.size && !all.length) throw new Error('Kalender kam leer an – die bisherigen Termine bleiben erhalten');
+      if (old.size >= 10 && all.length < old.size * 0.3) {
+        const ok = toast && await Modal.choose(`„${c.name}“ hat plötzlich viel weniger Termine`, `Vorher ${old.size}, jetzt nur ${all.length}. Wahrscheinlich ein Fehler beim Abruf. Trotzdem übernehmen?`, [{ label: 'Übernehmen', value: true, danger: true }]);
+        if (!ok) throw new Error(`Nur ${all.length} statt ${old.size} Termine geliefert – die bisherigen Termine bleiben erhalten`);
       }
       backup(cal.id, [...old.values()]);
       S.events = S.events.filter((e) => e.calId !== cal.id).concat(fresh);
       c.lastSync = Date.now();
       c.lastError = null;
+      c.dedup = DEDUP;
+      c.dupes = all.length - fresh.length;
       Store.emit('events');
-      if (toast) App.toast(`„${c.name}“ aktualisiert: ${fresh.length} Termine`);
+      if (toast) App.toast(`„${c.name}“ aktualisiert: ${fresh.length} neue Termine` + (c.dupes ? `, ${c.dupes} schon vorhandene ausgeblendet` : ''));
     } catch (e) {
       console.error(e);
       const c = Store.calendar(cal.id);
@@ -152,7 +169,7 @@ const Subs = (() => {
     const subRow = (c) => h('div', { class: 'set-row sub-row' },
       h('span', null, h('b', null, h('label', { class: 'sub-dot', title: 'Farbe ändern', style: { background: c.color } },
         h('input', { type: 'color', value: c.color, onchange: (e) => { Store.updateCalendar(c.id, { color: e.target.value }); draw(); } })), c.name),
-        h('small', null, (c.lastError ? '⚠ ' + c.lastError + ' · ' : '') + `${Store.state.events.filter((e) => e.calId === c.id).length} Termine · zuletzt geladen ${ago(c.lastSync)}`)),
+        h('small', null, (c.lastError ? '⚠ ' + c.lastError + ' · ' : '') + `${Store.state.events.filter((e) => e.calId === c.id).length} Termine` + (c.dupes ? ` · ${c.dupes} doppelte ausgeblendet` : '') + ` · zuletzt geladen ${ago(c.lastSync)}`)),
       h('div', { class: 'ai-key' },
         h('label', { class: 'sub-onoff', title: 'Im Kalender anzeigen' }, h('input', { type: 'checkbox', checked: c.visible !== false, onchange: (e) => Store.updateCalendar(c.id, { visible: e.target.checked }) }), 'an'),
         h('button', { type: 'button', class: 'btn btn-outline small', onclick: async () => { await refresh(c, { force: true, toast: true }); draw(); } }, 'Aktualisieren'),
@@ -180,5 +197,5 @@ const Subs = (() => {
     return box;
   }
 
-  return { init, refresh, refreshAll, add, remove, settingsSection, fetchIcs };
+  return { init, refresh, refreshAll, add, remove, settingsSection, fetchIcs, dropKnown, knownKeys };
 })();
