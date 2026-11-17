@@ -839,3 +839,13 @@ body.no-todos .todo-panel { margin-right: calc(-1 * var(--todo-w)); }
 /* Silber-Splash beim Abhaken (js/sound.js) */
 .done-splash { position: fixed; width: 0; height: 0; pointer-events: none; z-index: 9999; }
 .done-splash i { position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; background: var(--silver); box-shadow: 0 0 4px rgba(230, 232, 236, .7); }
+
+/* ---------- Startanimation (js/intro.js) ---------- */
+html[data-intro="wait"] #app, html[data-intro="wait"] .bottom-nav { visibility: hidden; }
+.intro-corner { position: absolute; width: 18px; height: 18px; pointer-events: none; z-index: 50; border: 0 solid var(--gold, var(--accent)); opacity: 0; }
+.intro-corner.tl { left: 6px; top: 6px; border-width: 1.5px 0 0 1.5px; border-top-left-radius: 8px; }
+.intro-corner.tr { right: 6px; top: 6px; border-width: 1.5px 1.5px 0 0; border-top-right-radius: 8px; }
+.intro-corner.bl { left: 6px; bottom: 6px; border-width: 0 0 1.5px 1.5px; border-bottom-left-radius: 8px; }
+.intro-corner.br { right: 6px; bottom: 6px; border-width: 0 1.5px 1.5px 0; border-bottom-right-radius: 8px; }
+.topbar { position: relative; }
+.intro-sweep { position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold, var(--accent)) 30%, var(--gold-light, var(--accent)) 70%, transparent); transform-origin: left; pointer-events: none; transform: scaleX(0); }

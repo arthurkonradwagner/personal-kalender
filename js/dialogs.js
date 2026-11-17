@@ -403,7 +403,7 @@ const Dialogs = (() => {
     const row = (label, control, hint) => h('label', { class: 'set-row' }, h('span', null, label, hint ? h('small', null, hint) : null), control);
     const sel = (key, opts, num) => {
       const s = h('select', null, ...opts.map(([v, l]) => h('option', { value: v, selected: String(st[key]) === String(v) }, l)));
-      s.addEventListener('change', () => { Store.setSetting(key, num ? +s.value : s.value); if (key === 'theme') App.applyTheme(); });
+      s.addEventListener('change', () => { Store.setSetting(key, num ? +s.value : s.value); if (key === 'theme' || key === 'style') App.applyTheme(); });
       return s;
     };
     const chk = (key) => { const c = h('input', { type: 'checkbox', class: 'switch', checked: !!st[key] }); c.addEventListener('change', () => Store.setSetting(key, c.checked)); return c; };
@@ -439,6 +439,8 @@ const Dialogs = (() => {
       syncSection(),
       h('h4', null, 'Darstellung'),
       row('Design', sel('theme', [['system', 'Wie System'], ['light', 'Hell'], ['dark', 'Dunkel']])),
+      row('Stil', sel('style', [['silver', 'Silber'], ['gold', 'Matt Gold']]), 'wirkt im Dunkel-Design'),
+      row('Startanimation beim Laden', (() => { const c = h('input', { type: 'checkbox', class: 'switch', checked: st.intro !== false }); c.addEventListener('change', () => Store.setSetting('intro', c.checked)); return c; })()),
       row('Woche beginnt am', sel('weekStart', [[1, 'Montag'], [0, 'Sonntag'], [6, 'Samstag']], true)),
       row('Kalenderwochen anzeigen', chk('showWeekNumbers')),
       row('Tagesansicht scrollt zu', sel('dayStartHour', Array.from({ length: 13 }, (_, i) => [i + 4, `${U.pad(i + 4)}:00 Uhr`]), true), 'wenn heute nicht sichtbar ist'),

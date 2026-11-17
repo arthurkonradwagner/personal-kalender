@@ -284,6 +284,7 @@ const App = (() => {
     const th = S().settings.theme;
     const dark = th === 'dark' || (th === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    document.documentElement.dataset.style = S().settings.style === 'gold' ? 'gold' : 'silver';
   }
 
   // ---------- Erinnerungen ----------

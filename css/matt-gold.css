@@ -1,0 +1,165 @@
+/* ============ Stil „Matt Gold“ (wie Wealth) ============
+   Nur Aussehen. Greift ausschließlich bei Dunkel + Einstellungen → Stil = Matt Gold
+   (html[data-theme="dark"][data-style="gold"]). Hell-Thema und Silber-Stil bleiben unberührt.
+   Regel: mattes Schwarz, feine warme Linien, Gold nur als Akzent, nichts glänzt. */
+
+@font-face { font-family: "Manrope"; src: url("../fonts/manrope-300.woff2") format("woff2"); font-weight: 300; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("../fonts/manrope-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("../fonts/manrope-500.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("../fonts/manrope-600.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/plex-mono-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+
+:root[data-theme="dark"][data-style="gold"] {
+  --gold: #c9a46a;
+  --gold-light: #dcc08e;
+  --gold-deep: #9c7a45;
+  --gold-soft: color-mix(in oklab, #c9a46a 14%, transparent);
+  --gold-edge: color-mix(in oklab, #c9a46a 50%, transparent);
+  --faint: #6f695f;
+  --rail: #0d0d0d;
+  --ease-glide: cubic-bezier(.22, 1, .36, 1);
+
+  --accent: #c9a46a;
+  --accent-2: #dcc08e;
+  --accent-soft: color-mix(in oklab, #c9a46a 14%, transparent);
+  --on-accent: #0b0b0b;
+  --silver: linear-gradient(90deg, #8c6d3f, #c9a46a 60%, #dcc08e);
+  --bg: #0b0b0b;
+  --surface: #121212;
+  --surface-2: #171717;
+  --surface-3: #1d1c1a;
+  --text: #ebe6dc;
+  --text-2: #c2bbae;
+  --muted: #a49d90;
+  --border: rgb(235 220 190 / .075);
+  --border-strong: rgb(235 220 190 / .15);
+  --today: #dcc08e;
+  --danger: #d26b5d;
+  --success: #8dbf7d;
+  --weekend: rgb(235 220 190 / .012);
+  --shadow-sm: 0 18px 40px -28px rgb(0 0 0 / .9);
+  --shadow: 0 18px 40px -28px rgb(0 0 0 / .9);
+  --shadow-lg: 0 24px 60px -24px rgb(0 0 0 / .95);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: "Manrope", "Segoe UI", system-ui, sans-serif;
+}
+
+/* ---------- Grund: Raum mit Hauch Gold von oben, Körnung ---------- */
+[data-style="gold"][data-theme="dark"] body {
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgb(201 164 106 / .045), transparent 60%),
+    linear-gradient(180deg, transparent 50%, rgb(0 0 0 / .35)),
+    #0b0b0b;
+  background-attachment: fixed;
+}
+[data-style="gold"][data-theme="dark"] body::before { opacity: .045; }
+[data-style="gold"][data-theme="dark"] :focus-visible { outline: 1.5px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- Kopfzeile, Leisten ---------- */
+[data-style="gold"][data-theme="dark"] .topbar { background: transparent; border-bottom-color: var(--border); }
+[data-style="gold"][data-theme="dark"] .brand-logo { background-image: url(../icons/logo-gold.svg); box-shadow: inset 0 0 0 1px var(--border); }
+[data-style="gold"][data-theme="dark"] .brand-name { font-size: 12px; font-weight: 500; letter-spacing: .32em; text-transform: uppercase; color: var(--gold); }
+[data-style="gold"][data-theme="dark"] .period-title { font-weight: 300; letter-spacing: -.01em; }
+[data-style="gold"][data-theme="dark"] .period-title small { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+[data-style="gold"][data-theme="dark"] .sidebar { background: var(--rail); border-right: 1px solid var(--border); }
+[data-style="gold"][data-theme="dark"] .todo-panel { background: var(--rail); border-left-color: var(--border); }
+[data-style="gold"][data-theme="dark"] .view-container { background: linear-gradient(180deg, #171717, #121212 55%); border-color: var(--border); }
+[data-style="gold"][data-theme="dark"] .swipe-pane { background: #121212; }
+[data-style="gold"][data-theme="dark"] .search-box { background: #0e0e0e; border-color: var(--border); }
+[data-style="gold"][data-theme="dark"] .search-box:focus-within { border-color: var(--gold-edge); background: #0e0e0e; }
+
+/* ---------- Knöpfe: flach, Gold nur als Rand und Tönung ---------- */
+[data-style="gold"][data-theme="dark"] .btn { border-radius: 8px; font-weight: 500; transition: background .3s var(--ease-glide), border-color .3s var(--ease-glide), color .3s var(--ease-glide); }
+[data-style="gold"][data-theme="dark"] .btn-primary { background: var(--gold-soft); border-color: var(--gold-edge); color: var(--gold-light); box-shadow: none; }
+[data-style="gold"][data-theme="dark"] .btn-primary:hover { background: color-mix(in oklab, #c9a46a 22%, transparent); border-color: color-mix(in oklab, #c9a46a 80%, transparent); filter: none; }
+[data-style="gold"][data-theme="dark"] .btn-outline { background: rgb(255 244 222 / .035); border-color: var(--border); }
+[data-style="gold"][data-theme="dark"] .btn-outline:hover { border-color: var(--border-strong); background: rgb(255 244 222 / .06); }
+[data-style="gold"][data-theme="dark"] .btn-danger { background: transparent; border-color: color-mix(in oklab, #d26b5d 40%, transparent); color: var(--danger); }
+[data-style="gold"][data-theme="dark"] .icon-btn:hover { background: rgb(255 244 222 / .05); color: var(--gold-light); }
+[data-style="gold"][data-theme="dark"] .btn-create { background: var(--gold-soft); border: 1px solid var(--gold-edge); box-shadow: none; border-radius: 12px; color: var(--gold-light); font-weight: 500; }
+[data-style="gold"][data-theme="dark"] .btn-create:hover { transform: none; box-shadow: none; background: color-mix(in oklab, #c9a46a 22%, transparent); }
+[data-style="gold"][data-theme="dark"] .btn-create .plus { background: none; color: var(--gold-light); -webkit-text-fill-color: currentColor; }
+
+/* ---------- Segment-Umschalter (Tag/Woche/Monat/…, Aufgaben-Reiter) ---------- */
+[data-style="gold"][data-theme="dark"] .view-switch,
+[data-style="gold"][data-theme="dark"] .todo-tabs { background: #0e0e0e; border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+[data-style="gold"][data-theme="dark"] .view-switch button,
+[data-style="gold"][data-theme="dark"] .todo-tabs button { border-radius: 6px; font-weight: 500; color: var(--muted); transition: background .3s var(--ease-glide), color .3s var(--ease-glide); }
+[data-style="gold"][data-theme="dark"] .view-switch button.active,
+[data-style="gold"][data-theme="dark"] .todo-tabs button.active { background: color-mix(in oklab, #c9a46a 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, #c9a46a 45%, transparent); color: var(--gold-light); }
+[data-style="gold"][data-theme="dark"] .view-select { border-radius: 8px; background: #0e0e0e; border-color: var(--border); color: var(--gold-light); font-weight: 500; }
+
+/* ---------- Heute: Gold-Zahl mit feiner Goldlinie statt Silberkreis ---------- */
+[data-style="gold"][data-theme="dark"] .tg-dayhead.today .dn,
+[data-style="gold"][data-theme="dark"] .month-cell.today .day-num,
+[data-style="gold"][data-theme="dark"] .agenda-day.today .ad-num { background: transparent; color: var(--gold-light); box-shadow: inset 0 -1px 0 var(--gold); border-radius: 0; font-weight: 400; }
+[data-style="gold"][data-theme="dark"] .mini-day.today,
+[data-style="gold"][data-theme="dark"] .ym-day.today { background: var(--gold-soft); color: var(--gold-light); box-shadow: inset 0 0 0 1px var(--gold-edge); }
+[data-style="gold"][data-theme="dark"] .mini-day.today.busy::after { background: var(--gold-light); }
+[data-style="gold"][data-theme="dark"] .tg-dayhead.today .wd { color: var(--gold); }
+[data-style="gold"][data-theme="dark"] .tg-col.today { background: rgb(201 164 106 / .025); }
+[data-style="gold"][data-theme="dark"] .tg-dayhead .dn { font-weight: 300; }
+
+/* ---------- Raster: Stunden in Plex Mono, Jetzt-Linie 1 px Gold ---------- */
+[data-style="gold"][data-theme="dark"] .tg-hour,
+[data-style="gold"][data-theme="dark"] .tg-gutter-head { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: .04em; color: var(--faint); }
+[data-style="gold"][data-theme="dark"] .tg-dayhead .wd,
+[data-style="gold"][data-theme="dark"] .dlp-wd { letter-spacing: .14em; font-weight: 500; }
+[data-style="gold"][data-theme="dark"] .now-line { height: 1px; background: var(--gold); }
+[data-style="gold"][data-theme="dark"] .now-dot { width: 7px; height: 7px; left: -4px; top: -3px; background: var(--gold); }
+[data-style="gold"][data-theme="dark"] .tg-ghost { background: var(--gold-soft); color: var(--gold-light); border: 1px solid var(--gold-edge); box-shadow: none; }
+[data-style="gold"][data-theme="dark"] .drag-edge { background: linear-gradient(to left, rgb(201 164 106 / .22), transparent); border-right-color: var(--gold); }
+[data-style="gold"][data-theme="dark"] .drag-edge.left { background: linear-gradient(to right, rgb(201 164 106 / .22), transparent); border-left-color: var(--gold); }
+
+/* ---------- Termine: flache Karten, Rand in Terminfarbe 45 %, Fläche 13 % ---------- */
+[data-style="gold"][data-theme="dark"] .tg-event,
+[data-style="gold"][data-theme="dark"] .chip-fill:not(.holiday) {
+  background: color-mix(in srgb, var(--ev) 22%, #121212) !important;
+  color: color-mix(in srgb, var(--ev) 30%, #ebe6dc) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ev) 60%, transparent);
+  border-radius: 8px;
+}
+[data-style="gold"][data-theme="dark"] .tg-event:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ev) 75%, transparent), var(--shadow); filter: none; }
+[data-style="gold"][data-theme="dark"] .tg-event .ev-title { color: #ebe6dc; font-weight: 500; }
+[data-style="gold"][data-theme="dark"] .tg-event .ev-time { font-variant-numeric: tabular-nums; }
+[data-style="gold"][data-theme="dark"] .chip-todo { background: color-mix(in srgb, var(--c) 22%, #121212); color: #ebe6dc; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent); }
+[data-style="gold"][data-theme="dark"] .chip-fill.holiday { color: var(--gold-light) !important; border-color: var(--gold-edge); }
+
+/* ---------- Aufgaben, Fortschrittsring ---------- */
+[data-style="gold"][data-theme="dark"] .ring-fg:not(.full) { stroke: var(--gold); filter: none; }
+[data-style="gold"][data-theme="dark"] .ring-bg { stroke: rgb(235 220 190 / .1); }
+[data-style="gold"][data-theme="dark"] .ring-label { font-weight: 300; color: var(--gold-light); font-variant-numeric: tabular-nums; }
+[data-style="gold"][data-theme="dark"] .progress-title { letter-spacing: .32em; color: var(--gold); font-weight: 500; }
+[data-style="gold"][data-theme="dark"] .todo-add { background: #0e0e0e; border-color: var(--border); }
+[data-style="gold"][data-theme="dark"] .todo-add:focus-within { border-color: var(--gold-edge); }
+[data-style="gold"][data-theme="dark"] .todo-add-plus { background: var(--gold-soft); color: var(--gold-light); box-shadow: inset 0 0 0 1px var(--gold-edge); }
+[data-style="gold"][data-theme="dark"] .todo-item.done .todo-check,
+[data-style="gold"][data-theme="dark"] .todo-item.completing .todo-check { background: var(--gold); }
+[data-style="gold"][data-theme="dark"] .list-chip.active { border-color: var(--gold-edge); color: var(--gold-light); }
+[data-style="gold"][data-theme="dark"] .done-splash i { box-shadow: none; }
+
+/* ---------- Dialoge, Menüs, Hinweise ---------- */
+[data-style="gold"][data-theme="dark"] .modal-backdrop { background: rgb(0 0 0 / .68); backdrop-filter: none; }
+[data-style="gold"][data-theme="dark"] .modal { background: #141414; border: 1px solid var(--border); border-radius: 12px; transition: transform .32s var(--ease-glide); }
+[data-style="gold"][data-theme="dark"] .modal-backdrop { transition: opacity .26s var(--ease-glide); }
+[data-style="gold"][data-theme="dark"] .popover { background: #151515; border-color: var(--border-strong); border-radius: 12px; }
+[data-style="gold"][data-theme="dark"] .toast { background: #151515; border-color: var(--border-strong); color: var(--text); }
+[data-style="gold"][data-theme="dark"] .switch:checked { background: var(--gold-deep); }
+[data-style="gold"][data-theme="dark"] .switch:checked::after { background: #ebe6dc; }
+[data-style="gold"][data-theme="dark"] .settings h4 { font-size: 11px; font-weight: 500; letter-spacing: .32em; text-transform: uppercase; color: var(--gold); }
+[data-style="gold"][data-theme="dark"] input:not([type=checkbox]):not([type=radio]):not([type=color]),
+[data-style="gold"][data-theme="dark"] select,
+[data-style="gold"][data-theme="dark"] textarea { accent-color: var(--gold); }
+
+/* ---------- Handy: untere Leiste wie Wealth, Gold aktiv ---------- */
+@media (max-width: 820px) {
+  [data-style="gold"][data-theme="dark"] .topbar { background: #0b0b0b; }
+  [data-style="gold"][data-theme="dark"] .view-container { background: #121212; }
+  [data-style="gold"][data-theme="dark"] .bottom-nav { background: var(--rail); border-top-color: var(--border); }
+  [data-style="gold"][data-theme="dark"] .bottom-nav button { font-weight: 500; }
+  [data-style="gold"][data-theme="dark"] .bottom-nav button.active { color: var(--gold-light); }
+  [data-style="gold"][data-theme="dark"] .bottom-nav .fab { background: #141414; color: var(--gold-light); border-radius: 50%; box-shadow: inset 0 0 0 1px var(--gold-edge), 0 18px 40px -20px rgb(0 0 0 / .95); }
+  [data-style="gold"][data-theme="dark"] .sidebar { background: var(--rail); }
+  [data-style="gold"][data-theme="dark"] .modal { border-radius: 14px 14px 0 0; border-bottom: 0; }
+}

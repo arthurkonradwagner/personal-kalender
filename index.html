@@ -16,6 +16,11 @@
 <title>Persönlicher Kalender</title>
 <link rel="icon" href="icons/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/matt-gold.css">
+<script>/* Startanimation vorbereiten, bevor das erste Bild erscheint (Sicherheitsnetz 2,5 s) */
+try { const s = (JSON.parse(localStorage.getItem('personal-kalender-v1') || '{}').settings) || {};
+  if (s.intro !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches) { document.documentElement.dataset.intro = 'wait'; setTimeout(() => document.documentElement.removeAttribute('data-intro'), 2500); }
+} catch (e) {}</script>
 </head>
 <body>
 <div id="app">
@@ -205,5 +210,6 @@
 <script src="js/subscriptions.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/app.js"></script>
+<script src="js/intro.js"></script>
 </body>
 </html>
