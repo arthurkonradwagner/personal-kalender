@@ -163,3 +163,15 @@
   [data-style="gold"][data-theme="dark"] .sidebar { background: var(--rail); }
   [data-style="gold"][data-theme="dark"] .modal { border-radius: 14px 14px 0 0; border-bottom: 0; }
 }
+
+/* Projekte */
+[data-style="gold"][data-theme="dark"] .prj-card { border-radius: 8px; background: #121212; }
+[data-style="gold"][data-theme="dark"] .prj-card:hover { background: #161616; }
+[data-style="gold"][data-theme="dark"] .prj-step.done .todo-check,
+[data-style="gold"][data-theme="dark"] .prj-step.completing .todo-check { background: var(--gold); }
+[data-style="gold"][data-theme="dark"] .prj-step { background: #141414; }
+[data-style="gold"][data-theme="dark"] .prj-filter, [data-style="gold"][data-theme="dark"] .prj-new { border-radius: 6px; }
+[data-style="gold"][data-theme="dark"] .prj-title, [data-style="gold"][data-theme="dark"] .prj-ed-title { font-weight: 500; }
+[data-style="gold"][data-theme="dark"] .prj-ed-title, [data-style="gold"][data-theme="dark"] .prj-step-in { outline: none; background: transparent; border-width: 0 0 1px; border-radius: 0; box-shadow: none; }
+[data-style="gold"][data-theme="dark"] .prj-editor .prj-ed-title { border-left: 3px solid var(--c); }
+[data-style="gold"][data-theme="dark"] .prj-step-in { border-bottom-style: dashed; }
