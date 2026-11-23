@@ -78,6 +78,18 @@ const U = (() => {
     return `${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}${sameYear ? '' : ' ' + d.getFullYear()}`;
   }
 
+  // Mehrfachauswahl wie im Datei-Explorer: ids = sichtbare Reihenfolge, anchor = zuletzt angeklickt
+  function pickMulti(ids, sel, anchor, id, ctrl, shift) {
+    const from = ids.indexOf(anchor), to = ids.indexOf(id);
+    if (shift && from >= 0) {
+      const range = ids.slice(Math.min(from, to), Math.max(from, to) + 1);
+      return { sel: new Set(ctrl ? [...sel, ...range] : range), anchor };
+    }
+    const next = new Set(sel);
+    if (ctrl) { if (!next.delete(id)) next.add(id); } else { next.clear(); if (shift) next.add(id); }
+    return { sel: next, anchor: id };
+  }
+
   // IDs
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
@@ -154,7 +166,7 @@ const U = (() => {
     DAY_MS, MONTHS, MONTHS_SHORT, WEEKDAYS, WEEKDAYS_SHORT, PALETTE,
     pad, dateKey, timeKey, dtKey, parseDate, startOfDay, addDays, addMinutes, addMonths,
     sameDay, daysBetween, startOfWeek, startOfMonth, minutesOfDay, atMinutes, shiftWall, tzOffset, isoWeek,
-    fmtTime, fmtDateLong, fmtDateShort, fmtDateNum, relDay, uid, h, $, $$, esc,
+    fmtTime, fmtDateLong, fmtDateShort, fmtDateNum, relDay, pickMulti, uid, h, $, $$, esc,
     hexToRgb, textOn, alpha, debounce, download,
   };
 })();

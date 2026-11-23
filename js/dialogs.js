@@ -513,7 +513,7 @@ const Dialogs = (() => {
   }
 
   function shortcuts() {
-    const rows = [['T', 'Zu heute springen'], ['D / W / M / Y / A', 'Tag / Woche / Monat / Jahr / Liste'], ['← → oder J / K', 'Zurück / Weiter'], ['N oder C', 'Neuer Termin'], ['Q', 'Neue Aufgabe'], ['/', 'Suchen'], ['Strg + Z', 'Rückgängig'], ['Strg + Enter', 'Termin speichern'], ['Esc', 'Schließen'], ['?', 'Diese Hilfe']];
+    const rows = [['T', 'Zu heute springen'], ['D / W / M / Y / A', 'Tag / Woche / Monat / Jahr / Liste'], ['← → oder J / K', 'Zurück / Weiter'], ['N oder C', 'Neuer Termin'], ['Q', 'Neue Aufgabe'], ['/', 'Suchen'], ['Strg + Z', 'Rückgängig'], ['Strg + Enter', 'Termin speichern'], ['Strg + Klick', 'Mehrere Aufgaben auswählen'], ['Esc', 'Schließen'], ['?', 'Diese Hilfe']];
     Modal.open(h('div', { class: 'shortcuts' }, h('div', { class: 'ed-head' }, h('h3', null, 'Tastenkürzel'), h('button', { class: 'icon-btn', onclick: () => Modal.close() }, '✕')),
       h('table', null, ...rows.map(([k, v]) => h('tr', null, h('td', null, ...k.split(' ').map((p) => (p.length <= 5 && p !== 'oder' && p !== '/' ? h('kbd', null, p) : ' ' + p + ' '))), h('td', null, v))))), { width: 440 });
   }

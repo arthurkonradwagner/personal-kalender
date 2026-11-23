@@ -227,7 +227,7 @@ const Store = (() => {
   // letzte eigene Änderung an einer Aufgabe (z. B. auf einen anderen Tag gezogen); Sync läuft nicht hierüber
   let lastEdit = 0;
   const editedRecently = () => Date.now() - lastEdit < 4000;
-  function updateTodo(id, patch) { lastEdit = Date.now(); Object.assign(todo(id), patch); emit('todos'); }
+  function updateTodo(id, patch) { lastEdit = Date.now(); for (const i of [].concat(id)) Object.assign(todo(i), patch); emit('todos'); } // id oder mehrere ids
   function removeTodo(id) { snapshot(); state.todos = state.todos.filter((t) => t.id !== id); emit('todos'); }
   function toggleTodo(id) {
     const t = todo(id);

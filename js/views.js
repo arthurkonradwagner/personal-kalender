@@ -291,6 +291,24 @@ const Views = (() => {
 
   // Aufgaben eines Tages als Blatt von unten (Handy)
   function taskSheet(d) {
+    let sel = new Set(), anchor = null; // Mehrfachauswahl am PC (Strg/Shift + Klick)
+    const ids = () => U.$$('.ts-item', box).map((r) => r.dataset.id);
+    const paint = () => {
+      const cards = U.$$('.ts-item', box), hint = U.$('.ts-hint', box);
+      sel = new Set(ids().filter((id) => sel.has(id)));
+      for (const r of cards) r.classList.toggle('ts-sel', sel.has(r.dataset.id));
+      if (hint) hint.textContent = sel.size ? `${sel.size} ausgewählt: gemeinsam auf einen anderen Tag ziehen. Esc hebt die Auswahl auf.`
+        : 'Tipp: Aufgabe länger halten und auf einen anderen Tag ziehen.' + (matchMedia('(pointer: fine)').matches ? ' Strg + Klick wählt mehrere aus.' : '');
+    };
+    const clearSel = () => { sel.clear(); paint(); };
+    const picker = {
+      click(id, e) { ({ sel, anchor } = U.pickMulti(ids(), sel, anchor, id, e.ctrlKey || e.metaKey, e.shiftKey)); paint(); },
+      // Was wird gezogen? Die ganze Auswahl, wenn die angefasste Karte dazugehört (mit Strg kommt sie dazu), sonst nur diese Karte
+      dragged(t, e) {
+        if (!sel.has(t.id)) { if (e.ctrlKey || e.metaKey) sel.add(t.id); else sel.clear(); paint(); }
+        return sel.has(t.id) ? [t, ...[...sel].filter((id) => id !== t.id).map(Store.todo).filter(Boolean)] : [t];
+      },
+    };
     const build = () => {
       const list = Store.state.todos.filter((t) => t.due === U.dateKey(d))
         .sort((a, b) => (a.done - b.done) || ((a.time || '99') < (b.time || '99') ? -1 : (a.time || '99') > (b.time || '99') ? 1 : 0) || (a.priority || 9) - (b.priority || 9));
@@ -309,7 +327,7 @@ const Views = (() => {
             onclick: () => { Store.removeTodo(t.id); App.toast('Aufgabe gelöscht', { undo: true }); rebuild(); } },
             h('svg', { viewBox: '0 0 24 24', html: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>' })));
         row.querySelector('.ts-check').addEventListener('click', (e) => { App.toggleTodo(t.id, e.currentTarget); setTimeout(rebuild, 260); });
-        todoDragSource(row, t);
+        todoDragSource(row, t, picker);
         return row;
       });
       return [
@@ -320,7 +338,7 @@ const Views = (() => {
           h('button', { class: 'icon-btn', onclick: () => Modal.close() }, '✕')),
         h('button', { class: 'ts-add', onclick: () => Dialogs.quickTodo(d, rebuild) }, '+ Aufgabe hinzufügen'),
         h('div', { class: 'ts-list' }, ...(rows.length ? rows : [h('p', { class: 'muted' }, 'Keine Aufgaben an diesem Tag.')])),
-        rows.length ? h('p', { class: 'ts-hint' }, 'Tipp: Aufgabe länger halten und auf einen anderen Tag ziehen.') : null,
+        ...(rows.length ? [h('p', { class: 'ts-hint' })] : []),
       ];
     };
     // Neu aufbauen mit FLIP: jede Karte gleitet von ihrem alten Platz (auch mitten in einer laufenden Bewegung) zum neuen
@@ -328,6 +346,7 @@ const Views = (() => {
       const oldList = box.querySelector('.ts-list'), scroll = oldList ? oldList.scrollTop : 0;
       const before = new Map([...box.querySelectorAll('.ts-item')].map((r) => [r.dataset.id, { top: r.getBoundingClientRect().top, o: getComputedStyle(r).opacity }]));
       box.replaceChildren(...build());
+      paint();
       box.querySelector('.ts-list').scrollTop = scroll;
       if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       for (const r of box.querySelectorAll('.ts-item')) {
@@ -342,16 +361,29 @@ const Views = (() => {
     };
     const box = h('div', { class: 'task-sheet' });
     box.append(...build());
+    paint();
     // Rückgängig (Toast) stellt den ganzen Stand wieder her: Blatt neu aufbauen
     const onStore = (kind) => { if (kind === 'all') rebuild(); };
     Store.subscribe(onStore);
-    Modal.open(box, { width: 520, cls: 'modal-task-sheet', onClose: () => Store.unsubscribe(onStore) });
+    // Escape hebt zuerst die Auswahl auf, erst danach schließt es das Fenster (nur wenn kein Fenster darüber liegt)
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || !sel.size || back.classList.contains('todo-dragging') || U.$$('.modal-backdrop').pop() !== back) return;
+      e.stopPropagation(); clearSel();
+    };
+    window.addEventListener('keydown', onKey, true);
+    const { back } = Modal.open(box, { width: 520, cls: 'modal-task-sheet', onClose: () => { Store.unsubscribe(onStore); window.removeEventListener('keydown', onKey, true); } });
+    // Klick ins Leere ebenso; die Bildlaufleiste zählt nicht
+    back.addEventListener('mousedown', (e) => {
+      if (!sel.size || e.target.closest('.ts-item, button')) return;
+      if (e.target.matches('.ts-list') && e.offsetX >= e.target.clientWidth) return;
+      e.stopImmediatePropagation(); clearSel();
+    }, true);
   }
 
   // ---------- Aufgabe aus dem Aufgabenblatt auf einen anderen Tag ziehen ----------
   // Länger auf der Aufgabe halten (Maus oder Finger); mit der Maus geht auch einfach losziehen.
   // Das Blatt blendet sich aus, die Aufgabe hängt am Zeiger und landet auf dem Tag, über dem man loslässt.
-  function todoDragSource(row, t) {
+  function todoDragSource(row, t, picker) {
     row.addEventListener('contextmenu', (e) => e.preventDefault());
     row.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || e.target.closest('.ts-check, .ts-act')) return;
@@ -367,7 +399,7 @@ const Views = (() => {
         window.removeEventListener('touchend', up);
         window.removeEventListener('touchcancel', up);
       };
-      const begin = (x, y) => { clearTimeout(timer); timer = null; vibrate(); drag = startTodoDrag(t, row, x, y, touch); };
+      const begin = (x, y) => { clearTimeout(timer); timer = null; vibrate(); drag = startTodoDrag(touch ? [t] : picker.dragged(t, e), row, x, y, touch); };
       const move = (ev) => {
         if (drag) { drag.move(ev.clientX, ev.clientY); return; }
         if (Math.abs(ev.clientX - x0) <= TOUCH_SLOP && Math.abs(ev.clientY - y0) <= TOUCH_SLOP) return;
@@ -381,10 +413,10 @@ const Views = (() => {
         const p = ev.touches[0];
         if (p) drag.move(p.clientX, p.clientY);
       };
-      const up = () => { off(); if (drag) { const d = drag; drag = null; d.drop(); } };
+      const up = () => { off(); if (drag) { const d = drag; drag = null; d.drop(); } else if (!touch) picker.click(t.id, e); };
       // Touch: das Blatt wird nur ausgeblendet, Touch-Ereignisse kommen weiter an
       const cancel = () => { if (drag && touch) return; off(); if (drag) { drag.abort(); drag = null; } };
-      timer = setTimeout(() => begin(x0, y0), LONG_MS);
+      if (touch || !(e.ctrlKey || e.metaKey || e.shiftKey)) timer = setTimeout(() => begin(x0, y0), LONG_MS); // langsamer Strg-Klick ist kein Ziehen
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
       window.addEventListener('pointercancel', cancel);
@@ -411,13 +443,14 @@ const Views = (() => {
     return null;
   }
 
-  function startTodoDrag(t, row, x, y, touch) {
+  function startTodoDrag(list, row, x, y, touch) {
+    const t = list[0], many = list.length > 1;
     const back = row.closest('.modal-backdrop');
     if (back) back.classList.add('todo-dragging'); // Blatt ausblenden, Kalender wird sichtbar
     App.hidePopover();
-    const list = Store.todoList(t.listId);
-    const ghost = h('div', { class: 'todo-drag-ghost', style: { '--c': t.color || (list ? list.color : 'var(--accent)') } },
-      h('span', { class: 'todo-box' }), h('span', { class: 'tdg-title' }, t.title), h('span', { class: 'tdg-day' }));
+    const tl = Store.todoList(t.listId);
+    const ghost = h('div', { class: 'todo-drag-ghost' + (many ? ' many' : ''), style: { '--c': t.color || (tl ? tl.color : 'var(--accent)') } },
+      h('span', { class: 'todo-box' }), h('span', { class: 'tdg-title' }, many ? `${list.length} Aufgaben` : t.title), h('span', { class: 'tdg-day' }));
     document.body.append(ghost);
     let target = null, edge = null, last = { x, y };
 
@@ -467,10 +500,10 @@ const Views = (() => {
         cleanup();
         if (!k || k === t.due) { if (back) back.classList.remove('todo-dragging'); return; }
         Store.snapshot();
-        Store.updateTodo(t.id, { due: k });
+        Store.updateTodo(list.map((x) => x.id).filter(Store.todo), { due: k });
         Modal.close();
         const d = U.parseDate(k);
-        App.toast(`Aufgabe auf ${U.WEEKDAYS_SHORT[d.getDay()]}, ${d.getDate()}. ${U.MONTHS_SHORT[d.getMonth()]} verschoben`, { undo: true });
+        App.toast(`${many ? list.length + ' Aufgaben' : 'Aufgabe'} auf ${U.WEEKDAYS_SHORT[d.getDay()]}, ${d.getDate()}. ${U.MONTHS_SHORT[d.getMonth()]} verschoben`, { undo: true });
       },
       abort() { cleanup(); if (back) back.classList.remove('todo-dragging'); },
     };
